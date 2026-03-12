@@ -81,14 +81,24 @@ onMounted(() => {
       <div v-else-if="filteredSongs.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
         No matches
       </div>
-      <div
-        v-for="song in filteredSongs"
+      <template
+        v-for="(song, idx) in filteredSongs"
         :key="song.Id"
-        class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors cursor-pointer group"
-        :class="{ 'bg-surface-alt': song.Pos === player.currentSong?.Pos }"
-        :data-current-song="song.Pos === player.currentSong?.Pos ? '' : undefined"
-        @click="playSong(song.Pos!)"
       >
+        <!-- Album separator -->
+        <div
+          v-if="song.Album && (idx === 0 || song.Album !== filteredSongs[idx - 1]?.Album || song.AlbumArtist !== filteredSongs[idx - 1]?.AlbumArtist)"
+          class="flex items-center gap-2 px-4 py-1.5 bg-surface-hover/50 border-t border-border"
+        >
+          <span class="text-xs font-medium text-text-muted truncate">{{ song.Album }}</span>
+          <span v-if="song.AlbumArtist || song.Artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ song.AlbumArtist || song.Artist }}</span>
+        </div>
+        <div
+          class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors cursor-pointer group"
+          :class="{ 'bg-surface-alt': song.Pos === player.currentSong?.Pos }"
+          :data-current-song="song.Pos === player.currentSong?.Pos ? '' : undefined"
+          @click="playSong(song.Pos!)"
+        >
         <!-- Now playing indicator -->
         <div class="w-5 shrink-0 text-center">
           <span
@@ -122,7 +132,8 @@ onMounted(() => {
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-      </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
