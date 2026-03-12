@@ -96,7 +96,7 @@ async function removeSong(id: number) {
             {{ song.Title || song.file }}
           </p>
           <p class="text-xs text-text-muted truncate">
-            {{ song.Artist || 'Unknown Artist' }}
+            {{ song.Artist || 'Unknown Artist' }}{{ song.Album ? ` \u00b7 ${song.Album}` : '' }}
           </p>
         </div>
 
