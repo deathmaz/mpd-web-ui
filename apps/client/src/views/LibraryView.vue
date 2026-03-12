@@ -2,14 +2,25 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
+import { formatDuration } from '@/utils/format'
 import FilterInput from '@/components/common/FilterInput.vue'
+import type { MpdDirectoryEntry } from '@mpd-web/shared'
+
+type Tab = 'artists' | 'albums' | 'folders'
+const tabLabels: Record<Tab, string> = { artists: 'Artists', albums: 'Albums', folders: 'Folders' }
 
 const router = useRouter()
-const activeTab = ref<'artists' | 'albums'>('artists')
+const activeTab = ref<Tab>('folders')
 const artists = ref<string[]>([])
 const albums = ref<{ album: string; artist: string }[]>([])
 const loading = ref(false)
 const filter = ref('')
+
+// Folders state
+const folderEntries = ref<MpdDirectoryEntry[]>([])
+const folderPath = ref('')
+const folderHistory = ref<string[]>([])
+const folderCache = new Map<string, MpdDirectoryEntry[]>()
 
 const filteredArtists = computed(() => {
   const q = filter.value.toLowerCase().trim()
@@ -23,6 +34,18 @@ const filteredAlbums = computed(() => {
   return albums.value.filter(
     (item) => item.album.toLowerCase().includes(q) || item.artist.toLowerCase().includes(q),
   )
+})
+
+const filteredFolderEntries = computed(() => {
+  const q = filter.value.toLowerCase().trim()
+  if (!q) return folderEntries.value
+  return folderEntries.value.filter((e) => e.name.toLowerCase().includes(q))
+})
+
+const filterPlaceholder = computed(() => {
+  if (activeTab.value === 'artists') return 'Filter artists...'
+  if (activeTab.value === 'albums') return 'Filter albums...'
+  return 'Filter folders...'
 })
 
 async function fetchArtists() {
@@ -49,11 +72,33 @@ async function fetchAlbums() {
   }
 }
 
-function selectTab(tab: 'artists' | 'albums') {
+async function fetchFolder(path: string) {
+  const cached = folderCache.get(path)
+  if (cached) {
+    folderEntries.value = cached
+    folderPath.value = path
+    return
+  }
+  loading.value = true
+  try {
+    const params = path ? `?path=${encodeURIComponent(path)}` : ''
+    const res = await fetch(`/api/library/browse${params}`)
+    if (!res.ok) return
+    const data = await res.json()
+    folderCache.set(path, data.entries)
+    folderEntries.value = data.entries
+    folderPath.value = path
+  } finally {
+    loading.value = false
+  }
+}
+
+function selectTab(tab: Tab) {
   activeTab.value = tab
   filter.value = ''
   if (tab === 'artists' && artists.value.length === 0) fetchArtists()
   if (tab === 'albums' && albums.value.length === 0) fetchAlbums()
+  if (tab === 'folders' && folderEntries.value.length === 0 && !folderPath.value) fetchFolder('')
 }
 
 function goToArtist(name: string) {
@@ -62,6 +107,29 @@ function goToArtist(name: string) {
 
 function goToAlbum(album: string, artist: string) {
   router.push({ name: 'album-detail', query: { album, artist } })
+}
+
+function enterFolder(path: string) {
+  folderHistory.value.push(folderPath.value)
+  filter.value = ''
+  fetchFolder(path)
+}
+
+function goBack() {
+  const prev = folderHistory.value.pop()
+  if (prev !== undefined) {
+    filter.value = ''
+    fetchFolder(prev)
+  }
+}
+
+async function playEntry(entry: MpdDirectoryEntry) {
+  const id = await sendCommand('addId', { uri: entry.path }) as number
+  await sendCommand('playId', { id })
+}
+
+async function addEntry(entry: MpdDirectoryEntry) {
+  await sendCommand('add', { uri: entry.path })
 }
 
 async function addArtist(artist: string) {
@@ -84,7 +152,7 @@ async function addArtist(artist: string) {
   }
 }
 
-onMounted(fetchArtists)
+onMounted(() => fetchFolder(''))
 </script>
 
 <template>
@@ -92,20 +160,20 @@ onMounted(fetchArtists)
     <!-- Tabs -->
     <div class="flex border-b border-border">
       <button
-        v-for="tab in (['artists', 'albums'] as const)"
+        v-for="tab in (['folders', 'artists', 'albums'] as const)"
         :key="tab"
         class="flex-1 py-3 text-sm font-medium text-center transition-colors border-b-2"
         :class="activeTab === tab
           ? 'text-primary border-primary'
           : 'text-text-muted border-transparent hover:text-text'"
         @click="selectTab(tab)"
-      >{{ tab === 'artists' ? 'Artists' : 'Albums' }}</button>
+      >{{ tabLabels[tab] }}</button>
     </div>
 
     <FilterInput
       v-if="!loading"
       v-model="filter"
-      :placeholder="activeTab === 'artists' ? 'Filter artists...' : 'Filter albums...'"
+      :placeholder="filterPlaceholder"
     />
 
     <!-- Loading -->
@@ -136,7 +204,7 @@ onMounted(fetchArtists)
     </div>
 
     <!-- Albums list -->
-    <div v-else class="flex-1 overflow-y-auto">
+    <div v-else-if="activeTab === 'albums'" class="flex-1 overflow-y-auto">
       <div v-if="filteredAlbums.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
         No matches
       </div>
@@ -153,6 +221,59 @@ onMounted(fetchArtists)
           <p class="text-sm truncate">{{ item.album }}</p>
           <p class="text-xs text-text-muted truncate">{{ item.artist }}</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Folders list -->
+    <div v-else-if="activeTab === 'folders'" class="flex-1 overflow-y-auto">
+      <!-- Breadcrumb / back -->
+      <div v-if="folderPath" class="flex items-center gap-2 px-4 py-2 border-b border-border text-sm">
+        <button class="text-text-muted hover:text-text shrink-0" @click="goBack">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span class="text-text-muted truncate">{{ folderPath }}</span>
+      </div>
+
+      <div v-if="filteredFolderEntries.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
+        {{ filter ? 'No matches' : 'Empty folder' }}
+      </div>
+
+      <div
+        v-for="entry in filteredFolderEntries"
+        :key="entry.path"
+        class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors cursor-pointer group"
+        @click="entry.type === 'directory' ? enterFolder(entry.path) : playEntry(entry)"
+      >
+        <!-- Icon -->
+        <div class="w-8 h-8 flex items-center justify-center text-text-muted shrink-0">
+          <svg v-if="entry.type === 'directory'" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+          </svg>
+        </div>
+
+        <!-- Name & details -->
+        <div class="flex-1 min-w-0">
+          <p class="text-sm truncate">{{ entry.type === 'file' && entry.Title ? entry.Title : entry.name }}</p>
+          <p v-if="entry.type === 'file' && entry.Artist" class="text-xs text-text-muted truncate">
+            {{ entry.Artist }}{{ entry.Album ? ` \u00b7 ${entry.Album}` : '' }}
+          </p>
+        </div>
+
+        <!-- Duration for files -->
+        <span v-if="entry.type === 'file'" class="text-xs text-text-muted shrink-0">
+          {{ formatDuration(entry.duration || entry.Time) }}
+        </span>
+
+        <!-- Add button -->
+        <button
+          class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          @click.stop="addEntry(entry)"
+        >Add</button>
       </div>
     </div>
   </div>

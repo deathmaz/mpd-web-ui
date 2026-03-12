@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { MpdConnection } from './connection.js'
 import {
+  parseKeyValue,
   parseResponse,
   parseListResponse,
   parseValueList,
@@ -12,6 +13,7 @@ import type {
   MpdOutput,
   MpdPlaylist,
   MpdSubsystem,
+  MpdDirectoryEntry,
 } from '@mpd-web/shared'
 
 function mapToSong(m: Map<string, string>): MpdSong {
@@ -325,6 +327,60 @@ export class MpdClient extends EventEmitter {
       }
     }
     return albums
+  }
+
+  async lsinfo(uri = ''): Promise<MpdDirectoryEntry[]> {
+    const cmd = uri ? `lsinfo "${uri}"` : 'lsinfo'
+    const response = await this.cmdConn.sendCommand(cmd)
+    const entries: MpdDirectoryEntry[] = []
+    let current: Map<string, string> | null = null
+    let currentType: 'directory' | 'file' | null = null
+
+    for (const line of response.split('\n')) {
+      if (line === '' || line === 'OK' || line.startsWith('OK MPD')) continue
+      const kv = parseKeyValue(line)
+      if (!kv) continue
+      const [key, value] = kv
+
+      if (key === 'directory' || key === 'file') {
+        if (current && currentType) {
+          entries.push(this.mapDirectoryEntry(current, currentType))
+        }
+        current = new Map()
+        currentType = key
+        current.set(key, value)
+      } else if (key === 'playlist') {
+        // Flush previous entry and skip playlist entries
+        if (current && currentType) {
+          entries.push(this.mapDirectoryEntry(current, currentType))
+        }
+        current = null
+        currentType = null
+      } else if (current) {
+        current.set(key, value)
+      }
+    }
+    if (current && currentType) {
+      entries.push(this.mapDirectoryEntry(current, currentType))
+    }
+    return entries
+  }
+
+  private mapDirectoryEntry(
+    m: Map<string, string>,
+    type: 'directory' | 'file',
+  ): MpdDirectoryEntry {
+    const path = m.get(type) || ''
+    const name = path.includes('/') ? path.substring(path.lastIndexOf('/') + 1) : path
+    const entry: MpdDirectoryEntry = { type, path, name }
+    if (type === 'file') {
+      if (m.has('Title')) entry.Title = m.get('Title')
+      if (m.has('Artist')) entry.Artist = m.get('Artist')
+      if (m.has('Album')) entry.Album = m.get('Album')
+      if (m.has('duration')) entry.duration = parseFloat(m.get('duration')!)
+      if (m.has('Time')) entry.Time = parseInt(m.get('Time')!)
+    }
+    return entry
   }
 
   async listGenres(): Promise<string[]> {

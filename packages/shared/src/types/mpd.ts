@@ -40,6 +40,18 @@ export interface MpdSong {
   [key: string]: string | number | undefined
 }
 
+export interface MpdDirectoryEntry {
+  type: 'directory' | 'file'
+  path: string
+  name: string
+  // Only for files
+  Title?: string
+  Artist?: string
+  Album?: string
+  duration?: number
+  Time?: number
+}
+
 export interface MpdOutput {
   outputid: number
   outputname: string

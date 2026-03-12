@@ -30,6 +30,15 @@ export async function libraryRoutes(fastify: FastifyInstance): Promise<void> {
     },
   )
 
+  fastify.get<{ Querystring: { path?: string } }>(
+    '/api/library/browse',
+    async (request) => {
+      const mpd = getMpdClient()
+      const entries = await mpd.lsinfo(request.query.path || '')
+      return { entries }
+    },
+  )
+
   fastify.get('/api/library/genres', async () => {
     const mpd = getMpdClient()
     const genres = await mpd.listGenres()
