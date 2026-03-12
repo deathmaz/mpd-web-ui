@@ -56,7 +56,7 @@ async function main() {
       ) {
         reply.status(404).send({ error: 'Not found' })
       } else {
-        reply.sendFile('index.html')
+        reply.sendFile('index.html', clientDist)
       }
     })
   }
