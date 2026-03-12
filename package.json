@@ -6,6 +6,11 @@
     "dev:server": "pnpm --filter @mpd-web/server run dev",
     "dev:client": "pnpm --filter @mpd-web/client run dev",
     "build": "pnpm -r run build",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.0"
   }
 }
