@@ -1,13 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
+import FilterInput from '@/components/common/FilterInput.vue'
 
 const router = useRouter()
 const activeTab = ref<'artists' | 'albums'>('artists')
 const artists = ref<string[]>([])
 const albums = ref<{ album: string; artist: string }[]>([])
 const loading = ref(false)
+const filter = ref('')
+
+const filteredArtists = computed(() => {
+  const q = filter.value.toLowerCase().trim()
+  if (!q) return artists.value
+  return artists.value.filter((a) => a.toLowerCase().includes(q))
+})
+
+const filteredAlbums = computed(() => {
+  const q = filter.value.toLowerCase().trim()
+  if (!q) return albums.value
+  return albums.value.filter(
+    (item) => item.album.toLowerCase().includes(q) || item.artist.toLowerCase().includes(q),
+  )
+})
 
 async function fetchArtists() {
   loading.value = true
@@ -35,6 +51,7 @@ async function fetchAlbums() {
 
 function selectTab(tab: 'artists' | 'albums') {
   activeTab.value = tab
+  filter.value = ''
   if (tab === 'artists' && artists.value.length === 0) fetchArtists()
   if (tab === 'albums' && albums.value.length === 0) fetchAlbums()
 }
@@ -85,6 +102,12 @@ onMounted(fetchArtists)
       >{{ tab === 'artists' ? 'Artists' : 'Albums' }}</button>
     </div>
 
+    <FilterInput
+      v-if="!loading"
+      v-model="filter"
+      :placeholder="activeTab === 'artists' ? 'Filter artists...' : 'Filter albums...'"
+    />
+
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-8 text-text-muted text-sm">
       Loading...
@@ -92,8 +115,11 @@ onMounted(fetchArtists)
 
     <!-- Artists list -->
     <div v-else-if="activeTab === 'artists'" class="flex-1 overflow-y-auto">
+      <div v-if="filteredArtists.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
+        No matches
+      </div>
       <div
-        v-for="artist in artists"
+        v-for="artist in filteredArtists"
         :key="artist"
         class="flex items-center gap-3 px-4 py-3 hover:bg-surface-alt transition-colors cursor-pointer group"
         @click="goToArtist(artist)"
@@ -111,8 +137,11 @@ onMounted(fetchArtists)
 
     <!-- Albums list -->
     <div v-else class="flex-1 overflow-y-auto">
+      <div v-if="filteredAlbums.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
+        No matches
+      </div>
       <div
-        v-for="item in albums"
+        v-for="item in filteredAlbums"
         :key="`${item.artist}-${item.album}`"
         class="flex items-center gap-3 px-4 py-3 hover:bg-surface-alt transition-colors cursor-pointer"
         @click="goToAlbum(item.album, item.artist)"

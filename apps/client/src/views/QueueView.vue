@@ -1,17 +1,34 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration, formatTotalDuration } from '@/utils/format'
+import FilterInput from '@/components/common/FilterInput.vue'
 
 const player = usePlayerStore()
 const queue = useQueueStore()
+const filter = ref('')
+
+const filteredSongs = computed(() => {
+  const q = filter.value.toLowerCase().trim()
+  if (!q) return queue.songs
+  return queue.songs.filter((song) => {
+    const title = (song.Title || song.file || '').toLowerCase()
+    const artist = (song.Artist || '').toLowerCase()
+    const album = (song.Album || '').toLowerCase()
+    return title.includes(q) || artist.includes(q) || album.includes(q)
+  })
+})
 
 const summary = computed(() => {
-  const count = queue.songs.length
+  const total = queue.songs.length
   const dur = formatTotalDuration(queue.totalDuration)
-  return `${count} song${count !== 1 ? 's' : ''}, ${dur}`
+  const base = `${total} song${total !== 1 ? 's' : ''}, ${dur}`
+  if (filteredSongs.value.length !== total) {
+    return `${filteredSongs.value.length} of ${base}`
+  }
+  return base
 })
 
 async function playSong(pos: number) {
@@ -43,13 +60,22 @@ async function removeSong(id: number) {
       </div>
     </div>
 
+    <FilterInput
+      v-if="queue.songs.length > 0"
+      v-model="filter"
+      placeholder="Filter queue..."
+    />
+
     <!-- Song list -->
     <div class="flex-1 overflow-y-auto">
       <div v-if="queue.songs.length === 0" class="flex items-center justify-center h-full text-text-muted text-sm">
         Queue is empty
       </div>
+      <div v-else-if="filteredSongs.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
+        No matches
+      </div>
       <div
-        v-for="song in queue.songs"
+        v-for="song in filteredSongs"
         :key="song.Id"
         class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors cursor-pointer group"
         :class="{ 'bg-surface-alt': song.Pos === player.currentSong?.Pos }"
