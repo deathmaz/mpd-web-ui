@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { sendCommand } from '@/composables/useWebSocket'
@@ -38,6 +38,13 @@ async function playSong(pos: number) {
 async function removeSong(id: number) {
   await sendCommand('deleteId', { id })
 }
+
+onMounted(() => {
+  nextTick(() => {
+    const el = document.querySelector('[data-current-song]')
+    if (el) el.scrollIntoView({ block: 'center' })
+  })
+})
 </script>
 
 <template>
@@ -79,6 +86,7 @@ async function removeSong(id: number) {
         :key="song.Id"
         class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors cursor-pointer group"
         :class="{ 'bg-surface-alt': song.Pos === player.currentSong?.Pos }"
+        :data-current-song="song.Pos === player.currentSong?.Pos ? '' : undefined"
         @click="playSong(song.Pos!)"
       >
         <!-- Now playing indicator -->
