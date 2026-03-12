@@ -1,0 +1,11 @@
+{
+  "name": "mpd-web",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:server": "pnpm --filter @mpd-web/server run dev",
+    "dev:client": "pnpm --filter @mpd-web/client run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck"
+  }
+}
