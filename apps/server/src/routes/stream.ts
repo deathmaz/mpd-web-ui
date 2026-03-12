@@ -6,7 +6,7 @@ export async function streamRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/stream', async (request, reply) => {
     const url = `http://${config.mpdHost}:${config.mpdStreamPort}/`
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve, _reject) => {
       const upstream = http.get(url, (res) => {
         reply.header(
           'Content-Type',

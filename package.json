@@ -8,9 +8,11 @@
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "oxlint"
   },
   "devDependencies": {
+    "oxlint": "^1.55.0",
     "vitest": "^4.1.0"
   }
 }

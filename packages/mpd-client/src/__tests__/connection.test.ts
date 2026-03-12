@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { MpdConnection } from '../connection.js'
 import { MpdError } from '../protocol.js'

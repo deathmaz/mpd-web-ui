@@ -1,6 +1,6 @@
 import { Socket } from 'net'
 import { EventEmitter } from 'events'
-import { MpdError, parseAck } from './protocol.js'
+import { parseAck } from './protocol.js'
 
 interface PendingCommand {
   resolve: (data: string) => void

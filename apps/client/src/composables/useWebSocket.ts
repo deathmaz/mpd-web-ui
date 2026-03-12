@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import type { ServerMessage, ClientCommand } from '@mpd-web/shared'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
