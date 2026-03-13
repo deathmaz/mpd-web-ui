@@ -18,7 +18,7 @@ function createTestConnection() {
     setNoDelay: ReturnType<typeof vi.fn>
   }
   socket.write = vi.fn()
-  socket.destroy = vi.fn()
+  socket.destroy = vi.fn(() => { socket.emit('close') })
   socket.connect = vi.fn()
   socket.setNoDelay = vi.fn()
 
@@ -222,38 +222,32 @@ describe('MpdConnection', () => {
   })
 
   describe('command timeout', () => {
-    it('rejects a command that does not receive a response within 10s', async () => {
+    it('disconnects when a command does not receive a response within 10s', async () => {
       vi.useFakeTimers()
-      const { conn } = createTestConnection()
+      const { conn, socket } = createTestConnection()
 
       const promise = conn.sendCommand('status')
 
       vi.advanceTimersByTime(10_000)
 
-      await expect(promise).rejects.toThrow('Command timeout')
+      await expect(promise).rejects.toThrow('Connection closed')
+      expect(socket.destroy).toHaveBeenCalled()
+      expect(conn.connected).toBe(false)
       vi.useRealTimers()
     })
 
-    it('advances the queue after a timeout', async () => {
+    it('rejects all queued commands on timeout disconnect', async () => {
       vi.useFakeTimers()
-      const { conn, socket, feed } = createTestConnection()
+      const { conn, socket } = createTestConnection()
 
       const p1 = conn.sendCommand('status')
       const p2 = conn.sendCommand('currentsong')
 
-      // First command times out
       vi.advanceTimersByTime(10_000)
-      await expect(p1).rejects.toThrow('Command timeout')
 
-      // Second command should now be sent
-      expect(socket.write).toHaveBeenCalledWith('currentsong\n')
-
+      await expect(p1).rejects.toThrow('Connection closed')
+      await expect(p2).rejects.toThrow('Connection closed')
       vi.useRealTimers()
-
-      // Second command can still complete normally
-      feed('file: song.mp3\nOK\n')
-      const r2 = await p2
-      expect(r2).toBe('file: song.mp3\n')
     })
 
     it('does not time out the idle command', async () => {

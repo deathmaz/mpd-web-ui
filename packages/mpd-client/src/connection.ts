@@ -155,24 +155,6 @@ export class MpdConnection extends EventEmitter {
     }
   }
 
-  private rejectPending(error: Error): void {
-    if (this.pendingCommand) {
-      const pending = this.pendingCommand
-      this.pendingCommand = null
-      this.buffer = ''
-      pending.reject(error)
-    } else if (this.pendingBinary) {
-      const pending = this.pendingBinary
-      this.pendingBinary = null
-      this.binaryHeaders = new Map()
-      this.binaryBuffer = null
-      this.binaryRemaining = 0
-      pending.reject(error)
-    }
-    this.rawBuffer = Buffer.alloc(0)
-    this.processing = false
-  }
-
   private processQueue(): void {
     if (this.processing || this.commandQueue.length === 0) return
     this.processing = true
@@ -188,8 +170,10 @@ export class MpdConnection extends EventEmitter {
     if (!next.command.startsWith('idle')) {
       this.commandTimer = setTimeout(() => {
         this.commandTimer = null
-        this.rejectPending(new Error('Command timeout'))
-        this.processQueue()
+        // Destroy the connection — the TCP stream is in an unknown state
+        // and any remaining response data would corrupt subsequent commands.
+        // The MpdClient's reconnect logic will establish a fresh connection.
+        this.disconnect()
       }, 10_000)
     }
 
