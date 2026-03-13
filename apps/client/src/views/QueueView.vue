@@ -91,6 +91,7 @@ onMounted(() => {
           class="flex items-center gap-2 px-4 py-1.5 bg-surface-hover/50 border-t border-border"
         >
           <span class="text-xs font-medium text-text-muted truncate">{{ song.Album }}</span>
+          <span v-if="song.Date" class="text-xs text-text-muted/60 truncate">({{ song.Date.slice(0, 4) }})</span>
           <span v-if="song.AlbumArtist || song.Artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ song.AlbumArtist || song.Artist }}</span>
         </div>
         <div
