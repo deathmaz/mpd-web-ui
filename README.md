@@ -62,10 +62,29 @@ pnpm dev:client   # Vite dev server on :5173 (proxies /api and /ws to :3000)
 
 ```sh
 pnpm build
-pnpm --filter @mpd-web/server start
+pnpm start
 ```
 
 The server serves the built client SPA and exposes everything on a single port (default 3000).
+
+### Running as a systemd service
+
+A service file example is provided. To start mpd-web-ui automatically with your system:
+
+```sh
+# Copy and edit the example service file
+cp mpd-web-ui.service.example mpd-web-ui.service
+# Edit WorkingDirectory and paths to match your setup
+vim mpd-web-ui.service
+
+# Link the service file (stays in the project directory)
+systemctl --user link $(pwd)/mpd-web-ui.service
+systemctl --user daemon-reload
+systemctl --user enable --now mpd-web-ui
+
+# Allow user services to start at boot without login
+loginctl enable-linger $USER
+```
 
 ## Configuration
 
