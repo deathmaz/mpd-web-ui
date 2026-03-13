@@ -54,6 +54,7 @@ export class MpdConnection extends EventEmitter {
       this.binaryRemaining = 0
 
       this.socket.setNoDelay(true)
+      this.socket.setKeepAlive(true, 15_000) // detect dead connections after suspend
       // No setEncoding - always receive raw Buffers
 
       let greeted = false
