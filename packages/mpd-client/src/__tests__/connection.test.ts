@@ -221,6 +221,75 @@ describe('MpdConnection', () => {
     })
   })
 
+  describe('command timeout', () => {
+    it('rejects a command that does not receive a response within 10s', async () => {
+      vi.useFakeTimers()
+      const { conn } = createTestConnection()
+
+      const promise = conn.sendCommand('status')
+
+      vi.advanceTimersByTime(10_000)
+
+      await expect(promise).rejects.toThrow('Command timeout')
+      vi.useRealTimers()
+    })
+
+    it('advances the queue after a timeout', async () => {
+      vi.useFakeTimers()
+      const { conn, socket, feed } = createTestConnection()
+
+      const p1 = conn.sendCommand('status')
+      const p2 = conn.sendCommand('currentsong')
+
+      // First command times out
+      vi.advanceTimersByTime(10_000)
+      await expect(p1).rejects.toThrow('Command timeout')
+
+      // Second command should now be sent
+      expect(socket.write).toHaveBeenCalledWith('currentsong\n')
+
+      vi.useRealTimers()
+
+      // Second command can still complete normally
+      feed('file: song.mp3\nOK\n')
+      const r2 = await p2
+      expect(r2).toBe('file: song.mp3\n')
+    })
+
+    it('does not time out the idle command', async () => {
+      vi.useFakeTimers()
+      const { conn } = createTestConnection()
+
+      const promise = conn.sendCommand('idle')
+
+      // Advance well past the timeout
+      vi.advanceTimersByTime(60_000)
+
+      // Promise should still be pending (not rejected)
+      const settled = await Promise.race([
+        promise.then(() => 'resolved').catch(() => 'rejected'),
+        Promise.resolve('pending'),
+      ])
+      expect(settled).toBe('pending')
+      vi.useRealTimers()
+    })
+
+    it('clears timeout when command succeeds', async () => {
+      vi.useFakeTimers()
+      const { conn, feed } = createTestConnection()
+
+      const promise = conn.sendCommand('status')
+      feed('volume: 80\nOK\n')
+      await promise
+
+      // Advancing past timeout should not cause issues
+      vi.advanceTimersByTime(10_000)
+
+      // No unhandled rejection — timer was cleared
+      vi.useRealTimers()
+    })
+  })
+
   describe('connection lifecycle', () => {
     it('reports connected state', () => {
       const { conn } = createTestConnection()

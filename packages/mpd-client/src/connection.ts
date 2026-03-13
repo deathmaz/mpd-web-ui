@@ -38,6 +38,7 @@ export class MpdConnection extends EventEmitter {
     reject: (e: Error) => void
   }> = []
   private processing = false
+  private commandTimer: ReturnType<typeof setTimeout> | null = null
   private _connected = false
   private protocolVersion = ''
 
@@ -97,6 +98,7 @@ export class MpdConnection extends EventEmitter {
       })
       this.socket.on('close', () => {
         this._connected = false
+        this.clearCommandTimer()
         this.emit('close')
         if (this.pendingCommand) {
           this.pendingCommand.reject(new Error('Connection closed'))
@@ -146,6 +148,31 @@ export class MpdConnection extends EventEmitter {
     })
   }
 
+  private clearCommandTimer(): void {
+    if (this.commandTimer) {
+      clearTimeout(this.commandTimer)
+      this.commandTimer = null
+    }
+  }
+
+  private rejectPending(error: Error): void {
+    if (this.pendingCommand) {
+      const pending = this.pendingCommand
+      this.pendingCommand = null
+      this.buffer = ''
+      pending.reject(error)
+    } else if (this.pendingBinary) {
+      const pending = this.pendingBinary
+      this.pendingBinary = null
+      this.binaryHeaders = new Map()
+      this.binaryBuffer = null
+      this.binaryRemaining = 0
+      pending.reject(error)
+    }
+    this.rawBuffer = Buffer.alloc(0)
+    this.processing = false
+  }
+
   private processQueue(): void {
     if (this.processing || this.commandQueue.length === 0) return
     this.processing = true
@@ -155,6 +182,15 @@ export class MpdConnection extends EventEmitter {
       this.pendingBinary = { resolve: next.resolve, reject: next.reject }
     } else {
       this.pendingCommand = { resolve: next.resolve, reject: next.reject }
+    }
+
+    // Skip timeout for `idle` which blocks intentionally until MPD has changes
+    if (!next.command.startsWith('idle')) {
+      this.commandTimer = setTimeout(() => {
+        this.commandTimer = null
+        this.rejectPending(new Error('Command timeout'))
+        this.processQueue()
+      }, 10_000)
     }
 
     this.socket!.write(next.command + '\n')
@@ -233,6 +269,7 @@ export class MpdConnection extends EventEmitter {
       this.rawBuffer = rest
 
       if (line === 'OK') {
+        this.clearCommandTimer()
         if (this.pendingBinary) {
           const pending = this.pendingBinary
           this.pendingBinary = null
@@ -255,6 +292,7 @@ export class MpdConnection extends EventEmitter {
 
       const ack = parseAck(line)
       if (ack) {
+        this.clearCommandTimer()
         if (this.pendingBinary) {
           const pending = this.pendingBinary
           this.pendingBinary = null
