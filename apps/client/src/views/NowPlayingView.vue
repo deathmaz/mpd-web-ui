@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
-import { useElapsedTime } from '@/composables/useElapsedTime'
+import { useElapsedTime, seekTo } from '@/composables/useElapsedTime'
 import { useStream } from '@/composables/useStream'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
@@ -37,7 +37,9 @@ async function handleSeek(e: MouseEvent | TouchEvent) {
   const rect = target.getBoundingClientRect()
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
   const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-  await sendCommand('seekCur', { time: ratio * player.duration })
+  const time = ratio * player.duration
+  seekTo(time)
+  await sendCommand('seekCur', { time })
 }
 
 async function setVolume(e: Event) {

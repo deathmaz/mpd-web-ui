@@ -10,6 +10,7 @@ export const usePlayerStore = defineStore('player', () => {
   const single = ref<boolean | 'oneshot'>(false)
   const consume = ref<boolean | 'oneshot'>(false)
   const elapsed = ref(0)
+  const elapsedReceivedAt = ref(0)
   const duration = ref(0)
   const bitrate = ref(0)
   const audioFormat = ref('')
@@ -24,6 +25,7 @@ export const usePlayerStore = defineStore('player', () => {
     single.value = status.single
     consume.value = status.consume
     elapsed.value = status.elapsed ?? 0
+    elapsedReceivedAt.value = Date.now()
     duration.value = status.duration ?? 0
     bitrate.value = status.bitrate ?? 0
     audioFormat.value = status.audio ?? ''
@@ -31,6 +33,11 @@ export const usePlayerStore = defineStore('player', () => {
 
   function updateCurrentSong(song: MpdSong | null) {
     currentSong.value = song
+  }
+
+  function seekTo(time: number) {
+    elapsed.value = time
+    elapsedReceivedAt.value = Date.now()
   }
 
   function updateOutputs(o: MpdOutput[]) {
@@ -45,6 +52,7 @@ export const usePlayerStore = defineStore('player', () => {
     single,
     consume,
     elapsed,
+    elapsedReceivedAt,
     duration,
     bitrate,
     audioFormat,
@@ -52,6 +60,7 @@ export const usePlayerStore = defineStore('player', () => {
     outputs,
     updateStatus,
     updateCurrentSong,
+    seekTo,
     updateOutputs,
   }
 })
