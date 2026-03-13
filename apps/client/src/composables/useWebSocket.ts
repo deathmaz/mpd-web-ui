@@ -74,6 +74,14 @@ function handleMessage(event: MessageEvent): void {
   }
 }
 
+function rejectPendingCommands(): void {
+  for (const [, pending] of pendingCommands) {
+    clearTimeout(pending.timer)
+    pending.reject(new Error('Connection closed'))
+  }
+  pendingCommands.clear()
+}
+
 function connect(): void {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     return
@@ -94,12 +102,7 @@ function connect(): void {
 
   ws.onclose = () => {
     connected.value = false
-    // Reject pending commands
-    for (const [, pending] of pendingCommands) {
-      clearTimeout(pending.timer)
-      pending.reject(new Error('Connection closed'))
-    }
-    pendingCommands.clear()
+    rejectPendingCommands()
 
     // Reconnect
     if (!reconnectTimer) {
@@ -140,7 +143,23 @@ export function sendCommand(
   })
 }
 
+export function reconnect(): void {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  rejectPendingCommands()
+  if (ws) {
+    ws.onclose = null // prevent auto-reconnect from onclose
+    ws.close()
+    ws = null
+  }
+  connected.value = false
+  reconnectDelay = 1000
+  connect()
+}
+
 export function useWebSocket() {
   connect()
-  return { connected, sendCommand }
+  return { connected, sendCommand, reconnect }
 }
