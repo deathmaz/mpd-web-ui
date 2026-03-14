@@ -8,3 +8,4 @@ dist/
 *.jpg
 mpd-web-ui.service
 apps/client/public/libflac.js
+docker-compose.yml

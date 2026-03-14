@@ -95,13 +95,15 @@ No Node.js or pnpm needed on the host — only Docker:
 git clone <repo-url> mpd-web-ui
 cd mpd-web-ui
 
-# Edit docker-compose.yml to set PORT, MPD_HOST, etc.
+# Copy and edit the example compose file
+cp docker-compose.example.yml docker-compose.yml
+# Edit MPD_HOST, PORT, etc. to match your setup
 docker compose up -d --build
 ```
 
-The container uses `network_mode: host` so it can reach MPD on localhost. To change the port, edit the `PORT` environment variable in `docker-compose.yml`.
+The default config uses `network_mode: host` so the container can reach MPD on localhost.
 
-**Rootless Docker**: `network_mode: host` is silently ignored. Set `MPD_HOST` to your machine's IP address (e.g. `192.168.1.50`), add `ports: ["3000:3000"]`, and remove `network_mode: host`. See the comments in `docker-compose.yml`.
+**Rootless Docker**: `network_mode: host` is silently ignored. Set `MPD_HOST` to your machine's IP address (e.g. `192.168.1.50`), add `ports: ["3000:3000"]`, and remove `network_mode: host`. See the comments in `docker-compose.example.yml`.
 
 ## Configuration
 
