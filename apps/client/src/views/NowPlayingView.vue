@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useElapsedTime, seekTo } from '@/composables/useElapsedTime'
-import { useStream } from '@/composables/useStream'
+import { useAudioSource } from '@/composables/useAudioSource'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
+import SnapcastDialog from '@/components/player/SnapcastDialog.vue'
 
 const player = usePlayerStore()
 const { currentTime } = useElapsedTime()
-const stream = useStream()
+const { stream, snapcast, startMpdStream, startSnapcast } = useAudioSource()
+
+const showSnapcastDialog = ref(false)
 
 const title = computed(() => player.currentSong?.Title || 'Not playing')
 const artist = computed(() => player.currentSong?.Artist || '')
@@ -45,6 +48,24 @@ async function handleSeek(e: MouseEvent | TouchEvent) {
 async function setVolume(e: Event) {
   const value = parseInt((e.target as HTMLInputElement).value)
   await sendCommand('setVolume', { volume: value })
+}
+
+function handleListenToggle() {
+  if (stream.isPlaying.value) {
+    stream.stop()
+  } else {
+    startMpdStream()
+  }
+}
+
+function handleSnapcastToggle() {
+  if (snapcast.connected) {
+    snapcast.disconnect()
+  } else if (snapcast.configured) {
+    startSnapcast()
+  } else {
+    showSnapcastDialog.value = true
+  }
 }
 </script>
 
@@ -136,7 +157,7 @@ async function setVolume(e: Event) {
       </svg>
     </div>
 
-    <!-- Playback modes + stream toggle -->
+    <!-- Playback modes -->
     <div class="flex items-center justify-center gap-2 mb-2">
       <button
         class="px-3 py-1.5 text-xs rounded-full transition-colors"
@@ -160,20 +181,35 @@ async function setVolume(e: Event) {
       >Consume</button>
     </div>
 
-    <!-- Stream toggle -->
-    <div class="flex justify-center pb-2">
+    <!-- Audio source toggles -->
+    <div class="flex justify-center gap-2 pb-2">
       <button
         class="flex items-center gap-2 px-4 py-2 text-sm rounded-full transition-colors"
         :class="stream.isPlaying.value
           ? 'bg-primary text-white'
           : 'bg-surface-hover text-text-muted hover:text-text'"
-        @click="stream.toggle()"
+        @click="handleListenToggle"
       >
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
         </svg>
         {{ stream.isLoading.value ? 'Connecting...' : stream.isPlaying.value ? 'Listening' : 'Listen' }}
       </button>
+      <button
+        class="flex items-center gap-2 px-4 py-2 text-sm rounded-full transition-colors"
+        :class="snapcast.connected
+          ? 'bg-primary text-white'
+          : 'bg-surface-hover text-text-muted hover:text-text'"
+        @click="handleSnapcastToggle"
+      >
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11zm20-7H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
+        </svg>
+        {{ snapcast.connectionState === 'connecting' ? 'Connecting...' : 'Snapcast' }}
+      </button>
     </div>
+
+    <!-- Snapcast dialog -->
+    <SnapcastDialog v-if="showSnapcastDialog" @close="showSnapcastDialog = false" />
   </div>
 </template>

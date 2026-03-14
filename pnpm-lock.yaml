@@ -20,6 +20,9 @@ importers:
       '@mpd-web/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      libflacjs:
+        specifier: ^5.4.0
+        version: 5.4.0
       pinia:
         specifier: ^2.3.0
         version: 2.3.1(typescript@5.9.3)(vue@3.5.30(typescript@5.9.3))
@@ -1167,6 +1170,10 @@ packages:
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
+
+  libflacjs@5.4.0:
+    resolution: {integrity: sha512-O/MRbhnRiEXAT4K5q3YWUnyEhg7EJ7+2LNyRmOdxApWLdowi9QVGQqKGYHQg6Wx5l4qp6V7f62Utb1z/ESWqPw==}
+    hasBin: true
 
   light-my-request@6.6.0:
     resolution: {integrity: sha512-CHYbu8RtboSIoVsHZ6Ye4cj4Aw/yg2oAFimlF7mNvfDV192LR7nDiKtSIfCuLT7KokPSTn/9kfVLm5OGN0A28A==}
@@ -2489,6 +2496,8 @@ snapshots:
       dequal: 2.0.3
 
   json-schema-traverse@1.0.0: {}
+
+  libflacjs@5.4.0: {}
 
   light-my-request@6.6.0:
     dependencies:

@@ -12,6 +12,7 @@ A web-based frontend for [MPD](https://www.musicpd.org/) (Music Player Daemon) w
 - Playback modes (repeat, random, single, consume)
 - Audio output toggling
 - Browser audio streaming via MPD's httpd output
+- Snapcast integration for synchronized multiroom audio playback
 - Real-time state sync across all connected clients via WebSocket
 - Mobile-friendly dark UI
 
@@ -110,6 +111,7 @@ mpd-web-ui/
 ├── apps/
 │   ├── server/          # Fastify backend (REST + WebSocket + stream proxy)
 │   └── client/          # Vue 3 SPA (Vite + Pinia + Tailwind CSS v4)
+│       └── src/snapcast/ # Snapcast client (binary protocol, FLAC decoder, Web Audio)
 ├── package.json
 └── pnpm-workspace.yaml
 ```
@@ -119,6 +121,7 @@ mpd-web-ui/
 ```
 Browser ──WebSocket──▶ Fastify ──TCP──▶ MPD (control)
 Browser ──GET /api/stream──▶ Fastify ──HTTP──▶ MPD httpd (audio)
+Browser ──WebSocket──▶ Snapserver (audio via Snapcast, optional)
 ```
 
 The server maintains two persistent TCP connections to MPD:
@@ -126,6 +129,32 @@ The server maintains two persistent TCP connections to MPD:
 - **Idle connection** — permanent `idle` loop that receives subsystem change events and broadcasts them to all WebSocket clients in real time
 
 The `/api/stream` endpoint proxies MPD's httpd output so only one port needs to be exposed on your network.
+
+### Snapcast integration
+
+The UI can optionally act as a [Snapcast](https://github.com/snapcast/snapcast) client for synchronized multiroom audio. The browser connects directly to your snapserver — no backend proxy needed.
+
+To use Snapcast:
+
+1. Configure MPD with a FIFO output for Snapcast:
+   ```
+   audio_output {
+       type            "fifo"
+       name            "Snapcast"
+       path            "/tmp/snapfifo"
+       format          "48000:16:2"
+       mixer_type      "software"
+   }
+   ```
+
+2. Start snapserver with the FIFO as a source:
+   ```sh
+   snapserver -s pipe:///tmp/snapfifo?name=default
+   ```
+
+3. In the web UI, click the **Snapcast** button on the Now Playing page, enter your snapserver address (e.g. `192.168.1.50:1780`), and connect. The address is saved for future sessions.
+
+The MPD stream ("Listen") and Snapcast are mutually exclusive — activating one stops the other. Snapcast volume and connection settings are also available in the Settings page.
 
 ## License
 

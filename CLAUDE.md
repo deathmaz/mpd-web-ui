@@ -45,7 +45,7 @@ pnpm typecheck        # typecheck all packages
 
 - Always include tests for new or changed logic that is testable (protocol parsing, connection handling, utility functions, store actions)
 - Test files go in `__tests__/` directories adjacent to source, named `*.test.ts`
-- Existing test suites: `packages/mpd-client/src/__tests__/`, `apps/client/src/utils/__tests__/`
+- Existing test suites: `packages/mpd-client/src/__tests__/`, `apps/client/src/utils/__tests__/`, `apps/client/src/snapcast/__tests__/`
 
 ## Architecture notes
 
@@ -56,6 +56,16 @@ pnpm typecheck        # typecheck all packages
 - `/api/stream` proxies MPD's httpd output for browser audio playback
 - Client elapsed time is interpolated locally (250ms interval) between server status updates
 - Server serves the built client SPA with fallback to `index.html` for client-side routing
+
+### Snapcast integration
+
+- Browser connects **directly** to snapserver via two WebSockets (`/stream` for binary audio, `/jsonrpc` for control) — no backend proxy needed
+- Snapcast binary protocol implemented in `apps/client/src/snapcast/` — message parsing, time sync, FLAC/PCM decoding, Web Audio API playback
+- FLAC decoding uses `libflacjs` (same library as Snapweb) — synchronous streaming decoder with callbacks, loaded as a static script from `public/libflac.js`
+- Audio playback uses triple-buffered `AudioContext` scheduling (80ms buffers, 3 in flight) for gapless playback
+- MPD stream and Snapcast are mutually exclusive audio sources, enforced by `useAudioSource` composable
+- Snapcast server URL persisted in localStorage
+- Test suites: `apps/client/src/snapcast/__tests__/`
 
 ## Environment variables
 
