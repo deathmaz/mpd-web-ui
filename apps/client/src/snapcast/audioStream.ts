@@ -18,6 +18,8 @@ const MIN_CHUNKS_BEFORE_START = 8
 export class AudioStream {
   private ctx: AudioContext | null = null
   private gainNode: GainNode | null = null
+  private streamDest: MediaStreamAudioDestinationNode | null = null
+  private audioEl: HTMLAudioElement | null = null
   private timeProvider: TimeProvider
   private sampleFormat: SampleFormat | null = null
   private chunks: PendingChunk[] = []
@@ -38,7 +40,14 @@ export class AudioStream {
     this.ctx = new AudioContext({ sampleRate: sampleFormat.rate })
     this.timeProvider.setAudioContext(this.ctx)
     this.gainNode = this.ctx.createGain()
-    this.gainNode.connect(this.ctx.destination)
+
+    // Route through <audio> element so iOS keeps playback alive during sleep
+    this.streamDest = this.ctx.createMediaStreamDestination()
+    this.gainNode.connect(this.streamDest)
+    this.audioEl = new Audio()
+    this.audioEl.srcObject = this.streamDest.stream
+    this.audioEl.play().catch(() => {})
+
     this.playing = true
     this.started = false
     this.scheduledCount = 0
@@ -53,6 +62,12 @@ export class AudioStream {
     this.started = false
     this.chunks = []
     this.scheduledCount = 0
+    if (this.audioEl) {
+      this.audioEl.pause()
+      this.audioEl.srcObject = null
+      this.audioEl = null
+    }
+    this.streamDest = null
     if (this.ctx) {
       this.ctx.close().catch(() => {})
       this.ctx = null
