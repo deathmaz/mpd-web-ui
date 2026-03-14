@@ -87,6 +87,20 @@ systemctl --user enable --now mpd-web-ui
 loginctl enable-linger $USER
 ```
 
+### Running with Docker
+
+No Node.js or pnpm needed on the host — only Docker:
+
+```sh
+git clone <repo-url> mpd-web-ui
+cd mpd-web-ui
+
+# Edit docker-compose.yml to set PORT, MPD_HOST, etc.
+docker compose up -d --build
+```
+
+The container uses `network_mode: host` so it can reach MPD on localhost. To change the port, edit the `PORT` environment variable in `docker-compose.yml`.
+
 ## Configuration
 
 Environment variables:

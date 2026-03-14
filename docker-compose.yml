@@ -1,0 +1,10 @@
+services:
+  mpd-web-ui:
+    build: .
+    network_mode: host
+    environment:
+      - PORT=3000
+      - MPD_HOST=localhost
+      - MPD_PORT=6600
+      - MPD_STREAM_PORT=8000
+    restart: unless-stopped
