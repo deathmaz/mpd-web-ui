@@ -101,6 +101,8 @@ docker compose up -d --build
 
 The container uses `network_mode: host` so it can reach MPD on localhost. To change the port, edit the `PORT` environment variable in `docker-compose.yml`.
 
+**Rootless Docker**: `network_mode: host` is silently ignored. Set `MPD_HOST` to your machine's IP address (e.g. `192.168.1.50`), add `ports: ["3000:3000"]`, and remove `network_mode: host`. See the comments in `docker-compose.yml`.
+
 ## Configuration
 
 Environment variables:
