@@ -4,6 +4,7 @@ import { useSnapcastStore } from '@/stores/snapcast'
 
 const emit = defineEmits<{
   close: []
+  connect: []
 }>()
 
 const snapcast = useSnapcastStore()
@@ -12,8 +13,16 @@ const address = ref(snapcast.serverUrl || '')
 function handleConnect() {
   const val = address.value.trim()
   if (!val) return
+  if (snapcast.connected) {
+    snapcast.disconnect()
+  }
   snapcast.saveUrl(val)
-  snapcast.connect()
+  emit('connect')
+  emit('close')
+}
+
+function handleDisconnect() {
+  snapcast.disconnect()
   emit('close')
 }
 </script>
@@ -35,6 +44,11 @@ function handleConnect() {
 
       <div class="flex gap-2 justify-end">
         <button
+          v-if="snapcast.connected"
+          class="px-4 py-2 text-sm rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors mr-auto"
+          @click="handleDisconnect"
+        >Disconnect</button>
+        <button
           class="px-4 py-2 text-sm rounded-lg bg-surface-hover text-text-muted hover:text-text transition-colors"
           @click="emit('close')"
         >Cancel</button>
@@ -42,7 +56,7 @@ function handleConnect() {
           class="px-4 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors"
           :disabled="!address.trim()"
           @click="handleConnect"
-        >Connect</button>
+        >{{ snapcast.connected ? 'Reconnect' : 'Connect' }}</button>
       </div>
     </div>
   </div>

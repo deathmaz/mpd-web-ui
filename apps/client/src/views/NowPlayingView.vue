@@ -60,13 +60,7 @@ function handleListenToggle() {
 }
 
 function handleSnapcastToggle() {
-  if (snapcast.connected) {
-    snapcast.disconnect()
-  } else if (snapcast.configured) {
-    startSnapcast()
-  } else {
-    showSnapcastDialog.value = true
-  }
+  showSnapcastDialog.value = true
 }
 </script>
 
@@ -200,6 +194,6 @@ function handleSnapcastToggle() {
     </div>
 
     <!-- Snapcast dialog -->
-    <SnapcastDialog v-if="showSnapcastDialog" @close="showSnapcastDialog = false" />
+    <SnapcastDialog v-if="showSnapcastDialog" @close="showSnapcastDialog = false" @connect="startSnapcast" />
   </div>
 </template>

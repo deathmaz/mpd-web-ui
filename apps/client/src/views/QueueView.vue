@@ -88,7 +88,7 @@ onMounted(() => {
         <!-- Album separator -->
         <div
           v-if="song.Album && (idx === 0 || song.Album !== filteredSongs[idx - 1]?.Album || song.AlbumArtist !== filteredSongs[idx - 1]?.AlbumArtist)"
-          class="flex items-center gap-2 px-4 py-1.5 bg-surface-hover/50 border-t border-border"
+          class="flex items-center gap-2 px-4 py-1.5 bg-surface-hover border-t border-border sticky top-0 z-10"
         >
           <span class="text-xs font-medium text-text-muted truncate">{{ song.Album }}</span>
           <span v-if="song.Date" class="text-xs text-text-muted/60 truncate">({{ song.Date.slice(0, 4) }})</span>
