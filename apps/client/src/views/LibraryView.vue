@@ -133,6 +133,16 @@ async function addEntry(entry: MpdDirectoryEntry) {
   await sendCommand('add', { uri: entry.path })
 }
 
+async function playFolder() {
+  await sendCommand('clear')
+  await sendCommand('add', { uri: folderPath.value })
+  await sendCommand('play', { pos: 0 })
+}
+
+async function addFolder() {
+  await sendCommand('add', { uri: folderPath.value })
+}
+
 async function addArtist(artist: string) {
   const res = await fetch(`/api/library/albums?artist=${encodeURIComponent(artist)}`)
   if (!res.ok) return
@@ -234,7 +244,15 @@ onMounted(() => fetchFolder(''))
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <span class="text-text-muted truncate">{{ folderPath }}</span>
+        <span class="flex-1 text-text-muted truncate">{{ folderPath }}</span>
+        <button
+          class="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors shrink-0"
+          @click="playFolder"
+        >Play</button>
+        <button
+          class="px-3 py-1.5 text-xs bg-surface-hover text-text-muted rounded-lg hover:text-text transition-colors shrink-0"
+          @click="addFolder"
+        >Add to queue</button>
       </div>
 
       <div v-if="filteredFolderEntries.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
