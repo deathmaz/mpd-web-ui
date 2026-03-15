@@ -62,9 +62,11 @@ async function main() {
   }
 
   // Connect to MPD then start server
+  // Set up event broadcasting before connecting — it listens on the MpdClient
+  // EventEmitter which persists across reconnects
+  setupMpdEventBroadcasting()
   try {
     await connectMpd()
-    setupMpdEventBroadcasting()
   } catch (err) {
     fastify.log.error('Failed to connect to MPD: %s', err)
     fastify.log.info('Server starting without MPD connection, will retry...')

@@ -144,12 +144,15 @@ export class MpdClient extends EventEmitter {
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null
       try {
+        this.cmdConn.disconnect()
+        this.idleConn.disconnect()
         this.cmdConn = new MpdConnection()
         this.idleConn = new MpdConnection()
         await this.connect()
         this.emit('reconnect')
-      } catch {
+      } catch (err) {
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
+        this.emit('error', new Error(`Reconnect failed (retry in ${this.reconnectDelay / 1000}s): ${err instanceof Error ? err.message : err}`))
         this.scheduleReconnect()
       }
     }, this.reconnectDelay)

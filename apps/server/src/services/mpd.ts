@@ -10,6 +10,19 @@ export function getMpdClient(): MpdClient {
       port: config.mpdPort,
       password: config.mpdPassword,
     })
+
+    // Permanent error handler — prevents unhandled 'error' events from crashing
+    client.on('error', (err) => {
+      console.error('MPD error:', err instanceof Error ? err.message : err)
+    })
+
+    client.on('disconnect', () => {
+      console.warn('MPD disconnected, will attempt to reconnect...')
+    })
+
+    client.on('reconnect', () => {
+      console.log(`Reconnected to MPD at ${config.mpdHost}:${config.mpdPort}`)
+    })
   }
   return client
 }
