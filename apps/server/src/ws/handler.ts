@@ -114,6 +114,8 @@ async function handleCommand(
   }
 }
 
+const PING_INTERVAL = 30_000
+
 export function setupWebSocketHandler(ws: WebSocket): void {
   addClient(ws)
 
@@ -140,6 +142,22 @@ export function setupWebSocketHandler(ws: WebSocket): void {
       // Ignore malformed messages
     }
   })
+
+  // Heartbeat: ping every 30s, close if no pong within 10s
+  let alive = true
+  ws.on('pong', () => { alive = true })
+
+  const pingInterval = setInterval(() => {
+    if (!alive) {
+      clearInterval(pingInterval)
+      ws.terminate()
+      return
+    }
+    alive = false
+    ws.ping()
+  }, PING_INTERVAL)
+
+  ws.on('close', () => clearInterval(pingInterval))
 }
 
 /**

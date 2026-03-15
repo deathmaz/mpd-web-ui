@@ -108,10 +108,11 @@ export class MpdClient extends EventEmitter {
     this._connected = true
     this.reconnectDelay = 1000
 
-    this.cmdConn.on('close', () => this.handleDisconnect())
-    this.idleConn.on('close', () => this.handleDisconnect())
-    this.cmdConn.on('error', (err) => this.emit('error', err))
-    this.idleConn.on('error', (err) => this.emit('error', err))
+    // Use once() to prevent listener accumulation across reconnects
+    this.cmdConn.once('close', () => this.handleDisconnect())
+    this.idleConn.once('close', () => this.handleDisconnect())
+    this.cmdConn.once('error', (err) => this.emit('error', err))
+    this.idleConn.once('error', (err) => this.emit('error', err))
 
     this.startIdleLoop()
     this.emit('connect')
@@ -165,7 +166,9 @@ export class MpdClient extends EventEmitter {
       } catch (err) {
         if (this.idleRunning) {
           this.emit('error', err)
-          break
+          // Trigger reconnect — idle loop dying means we can't receive events
+          this.handleDisconnect()
+          return
         }
       }
     }

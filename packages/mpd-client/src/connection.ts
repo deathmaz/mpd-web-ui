@@ -125,6 +125,8 @@ export class MpdConnection extends EventEmitter {
   }
 
   disconnect(): void {
+    this.clearCommandTimer()
+    this.processing = false
     if (this.socket) {
       this.socket.destroy()
       this.socket = null

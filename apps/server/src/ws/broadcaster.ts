@@ -12,7 +12,12 @@ export function broadcast(message: ServerMessage): void {
   const data = JSON.stringify(message)
   for (const ws of clients) {
     if (ws.readyState === ws.OPEN) {
-      ws.send(data)
+      try {
+        ws.send(data)
+      } catch {
+        clients.delete(ws)
+        try { ws.close() } catch { /* already closing */ }
+      }
     }
   }
 }

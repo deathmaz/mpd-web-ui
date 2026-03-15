@@ -3,10 +3,13 @@ import type { ServerMessage, ClientCommand } from '@mpd-web/shared'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 
+const HEARTBEAT_TIMEOUT = 45_000
+
 const connected = ref(false)
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectDelay = 1000
+let heartbeatTimer: ReturnType<typeof setTimeout> | null = null
 const pendingCommands = new Map<
   string,
   { resolve: (data: unknown) => void; reject: (err: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -74,6 +77,22 @@ function handleMessage(event: MessageEvent): void {
   }
 }
 
+function resetHeartbeat(): void {
+  clearHeartbeat()
+  heartbeatTimer = setTimeout(() => {
+    // No message received for 45s — connection is dead, force reconnect
+    console.warn('WebSocket heartbeat timeout, reconnecting')
+    reconnect()
+  }, HEARTBEAT_TIMEOUT)
+}
+
+function clearHeartbeat(): void {
+  if (heartbeatTimer) {
+    clearTimeout(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
 function rejectPendingCommands(): void {
   for (const [, pending] of pendingCommands) {
     clearTimeout(pending.timer)
@@ -96,12 +115,17 @@ function connect(): void {
       clearTimeout(reconnectTimer)
       reconnectTimer = null
     }
+    resetHeartbeat()
   }
 
-  ws.onmessage = handleMessage
+  ws.onmessage = (event: MessageEvent) => {
+    resetHeartbeat()
+    handleMessage(event)
+  }
 
   ws.onclose = () => {
     connected.value = false
+    clearHeartbeat()
     rejectPendingCommands()
 
     // Reconnect
