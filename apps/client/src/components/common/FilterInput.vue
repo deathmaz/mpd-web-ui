@@ -40,7 +40,7 @@ function clear() {
         :value="local"
         type="text"
         :placeholder="placeholder || 'Filter...'"
-        class="w-full bg-surface-hover text-text placeholder:text-text-muted px-3 py-1.5 pr-8 rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
+        class="w-full bg-surface-hover text-text placeholder:text-text-muted px-3 py-1.5 pr-8 rounded-lg text-base outline-none focus:ring-1 focus:ring-primary"
         @input="onInput"
       />
       <button

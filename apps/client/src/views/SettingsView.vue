@@ -82,7 +82,7 @@ async function setSnapcastVolume(e: Event) {
               v-model="snapcastUrl"
               type="text"
               placeholder="192.168.1.50:1780"
-              class="flex-1 px-3 py-2 bg-surface-alt rounded-lg text-sm text-text border border-border focus:border-primary focus:outline-none"
+              class="flex-1 px-3 py-2 bg-surface-alt rounded-lg text-base text-text border border-border focus:border-primary focus:outline-none"
               @blur="saveSnapcastUrl"
               @keydown.enter="saveSnapcastUrl"
             />

@@ -28,7 +28,7 @@ function handleConnect() {
         v-model="address"
         type="text"
         placeholder="192.168.1.50:1780"
-        class="w-full px-3 py-2 bg-surface-alt rounded-lg text-sm text-text border border-border focus:border-primary focus:outline-none mb-1"
+        class="w-full px-3 py-2 bg-surface-alt rounded-lg text-base text-text border border-border focus:border-primary focus:outline-none mb-1"
         @keydown.enter="handleConnect"
       />
       <p class="text-xs text-text-muted mb-4">Default port is 1780 if omitted</p>

@@ -52,13 +52,13 @@ async function addAndPlay(uri: string) {
           v-model="query"
           type="text"
           placeholder="Search music..."
-          class="flex-1 bg-surface-hover text-text placeholder:text-text-muted px-3 py-2 rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
+          class="flex-1 bg-surface-hover text-text placeholder:text-text-muted px-3 py-2 rounded-lg text-base outline-none focus:ring-1 focus:ring-primary"
           @input="onInput"
           @keydown.enter="doSearch"
         />
         <select
           v-model="searchType"
-          class="bg-surface-hover text-text-muted text-xs rounded-lg px-2 outline-none"
+          class="bg-surface-hover text-text-muted text-base rounded-lg px-2 outline-none"
           @change="doSearch"
         >
           <option value="any">Any</option>
