@@ -311,5 +311,29 @@ describe('MpdConnection', () => {
       await expect(p1).rejects.toThrow('Connection closed')
       await expect(p2).rejects.toThrow('Connection closed')
     })
+
+    it('rejects sendCommand immediately when not connected', async () => {
+      const { conn } = createTestConnection()
+      ;(conn as any)._connected = false
+
+      await expect(conn.sendCommand('status')).rejects.toThrow('Not connected')
+    })
+
+    it('rejects sendBinaryCommand immediately when not connected', async () => {
+      const { conn } = createTestConnection()
+      ;(conn as any)._connected = false
+
+      await expect(conn.sendBinaryCommand('albumart "f" 0')).rejects.toThrow('Not connected')
+    })
+
+    it('does not crash processQueue when socket is null', async () => {
+      const { conn } = createTestConnection()
+      ;(conn as any).socket = null
+      ;(conn as any)._connected = true // connected but socket gone (race condition)
+
+      // Should reject with Not connected, not crash with null.write
+      const promise = conn.sendCommand('status')
+      await expect(promise).rejects.toThrow('Not connected')
+    })
   })
 })

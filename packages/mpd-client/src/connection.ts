@@ -166,7 +166,15 @@ export class MpdConnection extends EventEmitter {
   }
 
   private processQueue(): void {
-    if (this.processing || this.commandQueue.length === 0 || !this.socket) return
+    if (this.processing || this.commandQueue.length === 0) return
+    if (!this.socket) {
+      // Socket gone — reject all queued commands
+      for (const cmd of this.commandQueue) {
+        cmd.reject(new Error('Not connected'))
+      }
+      this.commandQueue = []
+      return
+    }
     this.processing = true
 
     const next = this.commandQueue.shift()!
