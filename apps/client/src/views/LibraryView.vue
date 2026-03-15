@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
 import FilterInput from '@/components/common/FilterInput.vue'
+import AlbumArt from '@/components/common/AlbumArt.vue'
 import type { MpdDirectoryEntry } from '@mpd-web/shared'
 
 type Tab = 'artists' | 'albums' | 'folders'
@@ -12,7 +13,7 @@ const tabLabels: Record<Tab, string> = { artists: 'Artists', albums: 'Albums', f
 const router = useRouter()
 const activeTab = ref<Tab>('folders')
 const artists = ref<string[]>([])
-const albums = ref<{ album: string; artist: string }[]>([])
+const albums = ref<{ album: string; artist: string; coverFile: string | null }[]>([])
 const loading = ref(false)
 const filter = ref('')
 
@@ -215,7 +216,7 @@ onMounted(() => fetchFolder(''))
         @click="goToAlbum(item.album, item.artist)"
       >
         <div class="w-10 h-10 rounded bg-surface-hover overflow-hidden shrink-0">
-          <!-- Could add album art here -->
+          <AlbumArt :src="item.coverFile ? `/api/art/${encodeURIComponent(item.coverFile)}` : null" />
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm truncate">{{ item.album }}</p>
