@@ -130,26 +130,29 @@ export class MpdClient extends EventEmitter {
   }
 
   private handleDisconnect(): void {
-    if (!this._connected) return
+    const wasConnected = this._connected
     this._connected = false
     this.idleRunning = false
-    this.emit('disconnect')
-
-    // Auto-reconnect with backoff
-    if (!this.reconnectTimer) {
-      this.reconnectTimer = setTimeout(async () => {
-        this.reconnectTimer = null
-        try {
-          this.cmdConn = new MpdConnection()
-          this.idleConn = new MpdConnection()
-          await this.connect()
-          this.emit('reconnect')
-        } catch {
-          this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
-          this.handleDisconnect()
-        }
-      }, this.reconnectDelay)
+    if (wasConnected) {
+      this.emit('disconnect')
+      this.scheduleReconnect()
     }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) return
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null
+      try {
+        this.cmdConn = new MpdConnection()
+        this.idleConn = new MpdConnection()
+        await this.connect()
+        this.emit('reconnect')
+      } catch {
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
+        this.scheduleReconnect()
+      }
+    }, this.reconnectDelay)
   }
 
   private async startIdleLoop(): Promise<void> {
