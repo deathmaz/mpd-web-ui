@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { SnapcastClient } from '@/snapcast/snapcastClient'
 import { SnapcastControl } from '@/snapcast/snapcastControl'
 import { loadFlacLibrary } from '@/snapcast/decoder'
+import { normalizeWsUrl } from '@/utils/url'
 import type { ConnectionState } from '@/snapcast/types'
 
 const LS_SERVER_URL = 'snapcast.serverUrl'
@@ -23,17 +24,7 @@ export const useSnapcastStore = defineStore('snapcast', () => {
   let controlClient: SnapcastControl | null = null
 
   function getWsUrl(): string {
-    let url = serverUrl.value.trim()
-    // Add ws:// if no protocol specified
-    if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
-      url = 'ws://' + url
-    }
-    // Add default port if none specified
-    const urlWithoutProto = url.replace(/^wss?:\/\//, '')
-    if (!urlWithoutProto.includes(':')) {
-      url += ':1780'
-    }
-    return url
+    return normalizeWsUrl(serverUrl.value)
   }
 
   async function connect(): Promise<void> {
