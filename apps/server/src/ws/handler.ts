@@ -128,6 +128,9 @@ export function setupWebSocketHandler(ws: WebSocket): void {
     })
     .catch((err) => {
       console.error('Failed to send initial state:', err)
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: 'MPD not connected' }))
+      }
     })
 
   ws.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {

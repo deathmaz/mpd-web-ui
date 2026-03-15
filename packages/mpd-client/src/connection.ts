@@ -136,6 +136,10 @@ export class MpdConnection extends EventEmitter {
 
   sendCommand(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
+      if (!this._connected) {
+        reject(new Error('Not connected'))
+        return
+      }
       this.commandQueue.push({ command, binary: false, resolve, reject })
       this.processQueue()
     })
@@ -145,6 +149,10 @@ export class MpdConnection extends EventEmitter {
     command: string,
   ): Promise<{ headers: Map<string, string>; data: Buffer }> {
     return new Promise((resolve, reject) => {
+      if (!this._connected) {
+        reject(new Error('Not connected'))
+        return
+      }
       this.commandQueue.push({ command, binary: true, resolve, reject })
       this.processQueue()
     })
@@ -158,7 +166,7 @@ export class MpdConnection extends EventEmitter {
   }
 
   private processQueue(): void {
-    if (this.processing || this.commandQueue.length === 0) return
+    if (this.processing || this.commandQueue.length === 0 || !this.socket) return
     this.processing = true
 
     const next = this.commandQueue.shift()!
