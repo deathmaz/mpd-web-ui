@@ -52,12 +52,12 @@ pnpm install
 
 ```sh
 # Start both server and client in dev mode
-pnpm dev
-
-# Or start them separately
-pnpm dev:server   # Fastify backend on :3000
-pnpm dev:client   # Vite dev server on :5173 (proxies /api and /ws to :3000)
+MPD_HOST=your-mpd-host pnpm dev
 ```
+
+Open the **Vite dev server** URL shown in the terminal (default `http://localhost:5173/`). Vite proxies `/api` and `/ws` to the backend automatically and provides hot module replacement for instant client updates.
+
+The backend only serves API and WebSocket endpoints in dev mode — client files are served by Vite.
 
 ## Production
 

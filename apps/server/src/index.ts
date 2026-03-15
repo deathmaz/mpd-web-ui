@@ -39,9 +39,10 @@ async function main() {
   await fastify.register(playlistRoutes)
   await fastify.register(outputRoutes)
 
-  // Serve Vue SPA in production
+  // Serve Vue SPA (skip in dev — use Vite's dev server instead)
+  const isDev = process.env.NODE_ENV === 'development'
   const clientDist = resolve(__dirname, '..', config.clientDistPath)
-  if (existsSync(clientDist)) {
+  if (!isDev && existsSync(clientDist)) {
     await fastify.register(fastifyStatic, {
       root: clientDist,
       prefix: '/',
