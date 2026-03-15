@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { usePlayerStore } from '@/stores/player'
 import { useElapsedTime } from '@/composables/useElapsedTime'
 import { sendCommand } from '@/composables/useWebSocket'
+import AlbumArt from '@/components/common/AlbumArt.vue'
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -37,12 +38,7 @@ async function togglePlay() {
     <div class="flex items-center gap-3 px-4 py-2">
       <!-- Album art thumbnail -->
       <div class="w-10 h-10 rounded bg-surface-hover shrink-0 overflow-hidden">
-        <img
-          v-if="player.currentSong?.file"
-          :src="`/api/art/${encodeURIComponent(player.currentSong.file)}`"
-          class="w-full h-full object-cover"
-          @error="($event.target as HTMLImageElement).style.display = 'none'"
-        />
+        <AlbumArt :src="player.currentSong?.file ? `/api/art/${encodeURIComponent(player.currentSong.file)}` : null" />
       </div>
 
       <!-- Song info -->

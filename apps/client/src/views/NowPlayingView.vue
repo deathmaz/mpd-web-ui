@@ -6,6 +6,7 @@ import { useAudioSource } from '@/composables/useAudioSource'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
 import SnapcastDialog from '@/components/player/SnapcastDialog.vue'
+import AlbumArt from '@/components/common/AlbumArt.vue'
 
 const player = usePlayerStore()
 const { currentTime } = useElapsedTime()
@@ -74,18 +75,7 @@ function handleSnapcastToggle() {
     <!-- Album art -->
     <div class="flex-1 flex items-center justify-center min-h-0 py-4">
       <div class="w-full max-w-sm aspect-square rounded-xl overflow-hidden bg-surface-alt shadow-2xl">
-        <img
-          v-if="artUrl"
-          :src="artUrl"
-          :key="artUrl"
-          class="w-full h-full object-cover"
-          @error="($event.target as HTMLImageElement).style.display = 'none'"
-        />
-        <div v-else class="w-full h-full flex items-center justify-center text-text-muted">
-          <svg class="w-20 h-20" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
-          </svg>
-        </div>
+        <AlbumArt :src="artUrl" :key="artUrl" />
       </div>
     </div>
 

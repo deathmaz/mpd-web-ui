@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
 import type { MpdSong } from '@mpd-web/shared'
+import AlbumArt from '@/components/common/AlbumArt.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,12 +59,7 @@ async function replaceAll() {
       </div>
       <div class="flex gap-4">
         <div class="w-24 h-24 rounded-lg bg-surface-hover shrink-0 overflow-hidden">
-          <img
-            v-if="artUrl"
-            :src="artUrl"
-            class="w-full h-full object-cover"
-            @error="($event.target as HTMLImageElement).style.display = 'none'"
-          />
+          <AlbumArt :src="artUrl" />
         </div>
         <div class="flex-1 min-w-0">
           <h1 class="text-lg font-semibold truncate">{{ albumName }}</h1>

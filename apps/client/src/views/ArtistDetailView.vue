@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
+import AlbumArt from '@/components/common/AlbumArt.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -53,13 +54,7 @@ async function addAlbum(album: string) {
         @click="goToAlbum(item.album)"
       >
         <div class="w-12 h-12 rounded bg-surface-hover shrink-0 overflow-hidden">
-          <img
-            v-if="item.coverFile"
-            :src="`/api/art/${encodeURIComponent(item.coverFile)}`"
-            class="w-full h-full object-cover"
-            loading="lazy"
-            @error="($event.target as HTMLImageElement).style.display = 'none'"
-          />
+          <AlbumArt :src="item.coverFile ? `/api/art/${encodeURIComponent(item.coverFile)}` : null" />
         </div>
         <span class="flex-1 text-sm truncate">{{ item.album }}</span>
         <button
