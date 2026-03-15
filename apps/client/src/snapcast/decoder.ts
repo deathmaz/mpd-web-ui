@@ -157,8 +157,10 @@ export class FlacDecoder implements Decoder {
       channels.push(new Float32Array(totalFrames))
     }
 
-    // Normalize using 2^bits (matching Snapweb)
-    const inv = 1 / (2 ** sf.bits)
+    // Signed integers range from -(2^(bits-1)) to 2^(bits-1)-1,
+    // so divide by 2^(bits-1) to normalize to [-1.0, 1.0].
+    // Using 2^bits would halve the amplitude (6dB loss).
+    const inv = 1 / (2 ** (sf.bits - 1))
     let pos = 0
     for (const buf of this.decodedPcm) {
       const frameCount = buf.byteLength / sf.frameSize()
