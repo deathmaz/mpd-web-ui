@@ -56,6 +56,17 @@ pnpm typecheck        # typecheck all packages
 - `/api/stream` proxies MPD's httpd output for browser audio playback
 - Client elapsed time is interpolated locally (250ms interval) between server status updates
 - Server serves the built client SPA with fallback to `index.html` for client-side routing
+- In dev mode (`NODE_ENV=development`), static file serving is skipped — use Vite's dev server for HMR
+
+### Virtual scrolling
+
+- All large list views use `useVirtualList` composable (`apps/client/src/composables/useVirtualList.ts`) — renders only visible items
+- Uses prefix-sum array for O(1) offset lookup, binary search for visible window, overscan buffer (5 items)
+- Applied to: QueueView (mixed headers + songs), LibraryView (artists/albums/folders tabs), SearchView, PlaylistDetailView
+- QueueView has sticky album headers via a computed that binary-searches `prefixSums` for the nearest header above viewport
+- Row heights must be fixed per item type — set via inline styles, not CSS padding
+- **All new list views with potentially large datasets must use `useVirtualList`** to avoid main thread blocking
+- Test suites: `apps/client/src/composables/__tests__/`
 
 ### Snapcast integration
 

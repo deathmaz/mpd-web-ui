@@ -2,14 +2,22 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
+import { useVirtualList } from '@/composables/useVirtualList'
 import { formatDuration } from '@/utils/format'
 import type { MpdSong } from '@mpd-web/shared'
+
+const ROW_HEIGHT = 44
 
 const route = useRoute()
 const router = useRouter()
 const name = route.params.name as string
 const songs = ref<MpdSong[]>([])
 const loading = ref(true)
+
+const { containerRef, totalHeight, visibleItems } = useVirtualList({
+  items: songs,
+  itemHeight: () => ROW_HEIGHT,
+})
 
 onMounted(async () => {
   try {
@@ -58,18 +66,24 @@ async function appendToQueue() {
 
     <div v-if="loading" class="flex items-center justify-center py-8 text-text-muted text-sm">Loading...</div>
 
-    <div v-else class="flex-1 overflow-y-auto">
-      <div
-        v-for="(song, idx) in songs"
-        :key="song.file"
-        class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors"
-      >
-        <span class="w-6 text-xs text-text-muted text-right shrink-0">{{ idx + 1 }}</span>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm truncate">{{ song.Title || song.file }}</p>
-          <p class="text-xs text-text-muted truncate">{{ song.Artist || '' }}</p>
+    <div v-else ref="containerRef" class="flex-1 overflow-y-auto">
+      <div v-if="songs.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
+        Empty playlist
+      </div>
+      <div v-else :style="{ height: totalHeight + 'px', position: 'relative', overflow: 'hidden' }">
+        <div
+          v-for="vItem in visibleItems"
+          :key="vItem.item.file"
+          class="absolute left-0 right-0 flex items-center gap-3 px-4 hover:bg-surface-alt transition-colors"
+          :style="{ top: vItem.offsetTop + 'px', height: vItem.height + 'px' }"
+        >
+          <span class="w-6 text-xs text-text-muted text-right shrink-0">{{ vItem.index + 1 }}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm truncate">{{ vItem.item.Title || vItem.item.file }}</p>
+            <p class="text-xs text-text-muted truncate">{{ vItem.item.Artist || '' }}</p>
+          </div>
+          <span class="text-xs text-text-muted shrink-0">{{ formatDuration(vItem.item.duration || vItem.item.Time) }}</span>
         </div>
-        <span class="text-xs text-text-muted shrink-0">{{ formatDuration(song.duration || song.Time) }}</span>
       </div>
     </div>
   </div>

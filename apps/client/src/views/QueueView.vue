@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 import { sendCommand } from '@/composables/useWebSocket'
+import { useVirtualList, findStartIndex } from '@/composables/useVirtualList'
 import { formatDuration, formatTotalDuration } from '@/utils/format'
 import FilterInput from '@/components/common/FilterInput.vue'
+import type { MpdSong } from '@mpd-web/shared'
+
+const HEADER_HEIGHT = 28
+const SONG_HEIGHT = 56
+
+type QueueItem =
+  | { type: 'header'; key: string; album: string; date?: string; artist?: string }
+  | { type: 'song'; key: string; song: MpdSong }
 
 const player = usePlayerStore()
 const queue = useQueueStore()
@@ -19,6 +28,44 @@ const filteredSongs = computed(() => {
     const album = (song.Album || '').toLowerCase()
     return title.includes(q) || artist.includes(q) || album.includes(q)
   })
+})
+
+const flatItems = computed<QueueItem[]>(() => {
+  const songs = filteredSongs.value
+  const result: QueueItem[] = []
+  for (let i = 0; i < songs.length; i++) {
+    const song = songs[i]
+    if (song.Album && (i === 0 || song.Album !== songs[i - 1]?.Album || song.AlbumArtist !== songs[i - 1]?.AlbumArtist)) {
+      result.push({
+        type: 'header',
+        key: `h-${result.length}`,
+        album: song.Album,
+        date: song.Date,
+        artist: song.AlbumArtist || song.Artist,
+      })
+    }
+    result.push({ type: 'song', key: `s-${song.Id}`, song })
+  }
+  return result
+})
+
+const { containerRef, scrollTop, prefixSums, totalHeight, visibleItems, scrollToIndex, resetScroll } = useVirtualList({
+  items: flatItems,
+  itemHeight: (item) => item.type === 'header' ? HEADER_HEIGHT : SONG_HEIGHT,
+})
+
+// Sticky header: binary search for scroll position, then walk back to find nearest header
+const stickyHeader = computed(() => {
+  const items = flatItems.value
+  const sums = prefixSums.value
+  const top = scrollTop.value
+  if (top <= 0 || items.length === 0) return null
+
+  const startIdx = findStartIndex(sums, top)
+  for (let i = Math.min(startIdx, items.length - 1); i >= 0; i--) {
+    if (items[i].type === 'header' && sums[i + 1] <= top) return items[i]
+  }
+  return null
 })
 
 const summary = computed(() => {
@@ -39,10 +86,17 @@ async function removeSong(id: number) {
   await sendCommand('deleteId', { id })
 }
 
+watch(filter, () => resetScroll())
+
+// Scroll to current song on mount
 onMounted(() => {
   nextTick(() => {
-    const el = document.querySelector('[data-current-song]')
-    if (el) el.scrollIntoView({ block: 'center' })
+    const currentPos = player.currentSong?.Pos
+    if (currentPos == null) return
+    const idx = flatItems.value.findIndex(
+      (item) => item.type === 'song' && item.song.Pos === currentPos,
+    )
+    if (idx >= 0) scrollToIndex(idx, 'center')
   })
 })
 </script>
@@ -74,67 +128,85 @@ onMounted(() => {
     />
 
     <!-- Song list -->
-    <div class="flex-1 overflow-y-auto">
-      <div v-if="queue.songs.length === 0" class="flex items-center justify-center h-full text-text-muted text-sm">
-        Queue is empty
-      </div>
-      <div v-else-if="filteredSongs.length === 0" class="flex items-center justify-center py-8 text-text-muted text-sm">
-        No matches
-      </div>
-      <template
-        v-for="(song, idx) in filteredSongs"
-        :key="song.Id"
-      >
-        <!-- Album separator -->
+    <div v-if="queue.songs.length === 0" class="flex-1 flex items-center justify-center text-text-muted text-sm">
+      Queue is empty
+    </div>
+    <div v-else-if="filteredSongs.length === 0" class="flex-1 flex items-center justify-center text-text-muted text-sm">
+      No matches
+    </div>
+    <div v-else ref="containerRef" class="flex-1 overflow-y-auto relative">
+      <!-- Sticky header overlay (zero-height wrapper so it doesn't shift the spacer) -->
+      <div class="sticky top-0 z-10" style="height: 0;">
         <div
-          v-if="song.Album && (idx === 0 || song.Album !== filteredSongs[idx - 1]?.Album || song.AlbumArtist !== filteredSongs[idx - 1]?.AlbumArtist)"
-          class="flex items-center gap-2 px-4 py-1.5 bg-surface-hover border-t border-border sticky top-0 z-10"
+          v-if="stickyHeader"
+          class="flex items-center gap-2 px-4 bg-surface-hover border-b border-border"
+          :style="{ height: HEADER_HEIGHT + 'px' }"
         >
-          <span class="text-xs font-medium text-text-muted truncate">{{ song.Album }}</span>
-          <span v-if="song.Date" class="text-xs text-text-muted/60 truncate">({{ song.Date.slice(0, 4) }})</span>
-          <span v-if="song.AlbumArtist || song.Artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ song.AlbumArtist || song.Artist }}</span>
+          <span class="text-xs font-medium text-text-muted truncate">{{ stickyHeader.album }}</span>
+          <span v-if="stickyHeader.date" class="text-xs text-text-muted/60 truncate">({{ stickyHeader.date.slice(0, 4) }})</span>
+          <span v-if="stickyHeader.artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ stickyHeader.artist }}</span>
         </div>
-        <div
-          class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-alt transition-colors cursor-pointer group"
-          :class="{ 'bg-surface-alt': song.Pos === player.currentSong?.Pos }"
-          :data-current-song="song.Pos === player.currentSong?.Pos ? '' : undefined"
-          @click="playSong(song.Pos!)"
-        >
-        <!-- Now playing indicator -->
-        <div class="w-5 shrink-0 text-center">
-          <span
-            v-if="song.Pos === player.currentSong?.Pos && player.playState === 'play'"
-            class="text-primary text-xs"
-          >&#9654;</span>
-          <span v-else class="text-xs text-text-muted">{{ (song.Pos ?? 0) + 1 }}</span>
-        </div>
+      </div>
 
-        <!-- Song info -->
-        <div class="flex-1 min-w-0">
-          <p class="text-sm truncate" :class="{ 'text-primary': song.Pos === player.currentSong?.Pos }">
-            {{ song.Title || song.file }}
-          </p>
-          <p class="text-xs text-text-muted truncate">
-            {{ song.Artist || 'Unknown Artist' }}{{ song.Album ? ` \u00b7 ${song.Album}` : '' }}
-          </p>
-        </div>
+      <!-- Virtual spacer -->
+      <div :style="{ height: totalHeight + 'px', position: 'relative', overflow: 'hidden' }">
+        <template v-for="vItem in visibleItems">
+          <!-- Album header -->
+          <div
+            v-if="vItem.item.type === 'header'"
+            :key="vItem.item.key"
+            class="absolute left-0 right-0 flex items-center gap-2 px-4 bg-surface-hover border-t border-border"
+            :style="{ top: vItem.offsetTop + 'px', height: vItem.height + 'px' }"
+          >
+            <span class="text-xs font-medium text-text-muted truncate">{{ vItem.item.album }}</span>
+            <span v-if="vItem.item.date" class="text-xs text-text-muted/60 truncate">({{ vItem.item.date.slice(0, 4) }})</span>
+            <span v-if="vItem.item.artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ vItem.item.artist }}</span>
+          </div>
+          <!-- Song row -->
+          <div
+            v-else
+            :key="vItem.item.key"
+            class="absolute left-0 right-0 flex items-center gap-3 px-4 hover:bg-surface-alt transition-colors cursor-pointer group"
+            :class="{ 'bg-surface-alt': vItem.item.song.Pos === player.currentSong?.Pos }"
+            :style="{ top: vItem.offsetTop + 'px', height: vItem.height + 'px' }"
+            @click="playSong(vItem.item.song.Pos!)"
+          >
+            <!-- Now playing indicator -->
+            <div class="w-5 shrink-0 text-center">
+              <span
+                v-if="vItem.item.song.Pos === player.currentSong?.Pos && player.playState === 'play'"
+                class="text-primary text-xs"
+              >&#9654;</span>
+              <span v-else class="text-xs text-text-muted">{{ (vItem.item.song.Pos ?? 0) + 1 }}</span>
+            </div>
 
-        <!-- Duration -->
-        <span class="text-xs text-text-muted shrink-0">
-          {{ formatDuration(song.duration || song.Time) }}
-        </span>
+            <!-- Song info -->
+            <div class="flex-1 min-w-0">
+              <p class="text-sm truncate" :class="{ 'text-primary': vItem.item.song.Pos === player.currentSong?.Pos }">
+                {{ vItem.item.song.Title || vItem.item.song.file }}
+              </p>
+              <p class="text-xs text-text-muted truncate">
+                {{ vItem.item.song.Artist || 'Unknown Artist' }}{{ vItem.item.song.Album ? ` \u00b7 ${vItem.item.song.Album}` : '' }}
+              </p>
+            </div>
 
-        <!-- Remove button -->
-        <button
-          class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          @click.stop="removeSong(song.Id!)"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        </div>
-      </template>
+            <!-- Duration -->
+            <span class="text-xs text-text-muted shrink-0">
+              {{ formatDuration(vItem.item.song.duration || vItem.item.song.Time) }}
+            </span>
+
+            <!-- Remove button -->
+            <button
+              class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              @click.stop="removeSong(vItem.item.song.Id!)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </template>
