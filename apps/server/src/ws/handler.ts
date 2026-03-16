@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws'
 import type { ClientCommand, StateUpdate, CommandResponse } from '@mpd-web/shared'
 import { getMpdClient } from '../services/mpd.js'
 import { addClient, broadcast } from './broadcaster.js'
+import { createDebouncedBroadcaster } from './debounce.js'
 
 async function getFullState(): Promise<StateUpdate> {
   const mpd = getMpdClient()
@@ -168,39 +169,34 @@ export function setupWebSocketHandler(ws: WebSocket): void {
  */
 export function setupMpdEventBroadcasting(): void {
   const mpd = getMpdClient()
+  const debounced = createDebouncedBroadcaster(150)
 
-  mpd.on('player', async () => {
-    try {
+  mpd.on('player', () => {
+    debounced('player', async () => {
       const [status, currentSong] = await Promise.all([
         mpd.status(),
         mpd.currentSong(),
       ])
       broadcast({ type: 'player', status, currentSong })
-    } catch (err) {
-      console.error('Error broadcasting player update:', err)
-    }
+    })
   })
 
-  mpd.on('mixer', async () => {
-    try {
+  mpd.on('mixer', () => {
+    debounced('mixer', async () => {
       const status = await mpd.status()
       broadcast({ type: 'mixer', volume: status.volume })
-    } catch (err) {
-      console.error('Error broadcasting mixer update:', err)
-    }
+    })
   })
 
-  mpd.on('playlist', async () => {
-    try {
+  mpd.on('playlist', () => {
+    debounced('playlist', async () => {
       const queue = await mpd.playlistInfo()
       broadcast({ type: 'queue', queue })
-    } catch (err) {
-      console.error('Error broadcasting queue update:', err)
-    }
+    })
   })
 
-  mpd.on('options', async () => {
-    try {
+  mpd.on('options', () => {
+    debounced('options', async () => {
       const status = await mpd.status()
       broadcast({
         type: 'options',
@@ -209,17 +205,13 @@ export function setupMpdEventBroadcasting(): void {
         single: status.single,
         consume: status.consume,
       })
-    } catch (err) {
-      console.error('Error broadcasting options update:', err)
-    }
+    })
   })
 
-  mpd.on('output', async () => {
-    try {
+  mpd.on('output', () => {
+    debounced('output', async () => {
       const outputs = await mpd.outputs()
       broadcast({ type: 'outputs', outputs })
-    } catch (err) {
-      console.error('Error broadcasting outputs update:', err)
-    }
+    })
   })
 }

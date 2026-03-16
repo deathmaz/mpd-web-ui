@@ -48,9 +48,27 @@ async function handleSeek(e: MouseEvent | TouchEvent) {
   await sendCommand('seekCur', { time })
 }
 
-async function setVolume(e: Event) {
+let volumeTimer: ReturnType<typeof setTimeout> | null = null
+let pendingVolume: number | null = null
+let lastSentVolume: number | null = null
+
+function setVolume(e: Event) {
   const value = parseInt((e.target as HTMLInputElement).value)
-  await sendCommand('setVolume', { volume: value })
+  if (value === lastSentVolume) return
+  pendingVolume = value
+  if (!volumeTimer) {
+    lastSentVolume = value
+    pendingVolume = null
+    void sendCommand('setVolume', { volume: value })
+    volumeTimer = setTimeout(() => {
+      volumeTimer = null
+      if (pendingVolume !== null && pendingVolume !== lastSentVolume) {
+        lastSentVolume = pendingVolume
+        void sendCommand('setVolume', { volume: pendingVolume })
+        pendingVolume = null
+      }
+    }, 50)
+  }
 }
 
 function handleListenToggle() {
@@ -102,6 +120,10 @@ onBeforeUnmount(() => {
   if (longPressTimer) {
     clearTimeout(longPressTimer)
     longPressTimer = null
+  }
+  if (volumeTimer) {
+    clearTimeout(volumeTimer)
+    volumeTimer = null
   }
 })
 </script>
