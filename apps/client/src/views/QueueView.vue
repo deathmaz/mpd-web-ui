@@ -63,7 +63,8 @@ const stickyHeader = computed(() => {
 
   const startIdx = findStartIndex(sums, top)
   for (let i = Math.min(startIdx, items.length - 1); i >= 0; i--) {
-    if (items[i].type === 'header' && sums[i + 1] <= top) return items[i]
+    const item = items[i]
+    if (item.type === 'header' && sums[i + 1] <= top) return item
   }
   return null
 })
