@@ -53,7 +53,7 @@ function handleDisconnect() {
           @click="emit('close')"
         >Cancel</button>
         <button
-          class="px-4 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors"
+          class="px-4 py-2 text-sm rounded-lg bg-primary text-surface hover:bg-primary-hover transition-colors"
           :disabled="!address.trim()"
           @click="handleConnect"
         >{{ snapcast.connected ? 'Reconnect' : 'Connect' }}</button>

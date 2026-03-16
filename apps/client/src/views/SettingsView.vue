@@ -4,12 +4,14 @@ import { usePlayerStore } from '@/stores/player'
 import { useWebSocket, sendCommand } from '@/composables/useWebSocket'
 import { useAudioSource } from '@/composables/useAudioSource'
 import { useSnapcastStore } from '@/stores/snapcast'
+import { useColorScheme } from '@/composables/useColorScheme'
 
 const player = usePlayerStore()
 const { connected } = useWebSocket()
 const { stream } = useAudioSource()
 const snapcast = useSnapcastStore()
 
+const { currentSchemeId, schemes, applyScheme } = useColorScheme()
 const snapcastUrl = ref(snapcast.serverUrl)
 
 async function toggleOutput(id: number) {
@@ -42,6 +44,20 @@ async function setSnapcastVolume(e: Event) {
     </div>
 
     <div class="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+      <!-- Color Scheme -->
+      <section>
+        <h2 class="text-sm font-medium text-text-muted mb-2">Color Scheme</h2>
+        <select
+          :value="currentSchemeId"
+          class="w-full px-3 py-2 bg-surface-alt rounded-lg text-base text-text border border-border focus:border-primary focus:outline-none"
+          @change="applyScheme(($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="scheme in schemes" :key="scheme.id" :value="scheme.id">
+            {{ scheme.name }}
+          </option>
+        </select>
+      </section>
+
       <!-- Connection status -->
       <section>
         <h2 class="text-sm font-medium text-text-muted mb-2">Connection</h2>
@@ -61,7 +77,7 @@ async function setSnapcastVolume(e: Event) {
           <button
             class="px-4 py-2 text-sm rounded-lg transition-colors"
             :class="stream.isPlaying.value
-              ? 'bg-primary text-white'
+              ? 'bg-primary text-surface'
               : 'bg-surface-hover text-text-muted hover:text-text'"
             @click="stream.toggle()"
           >
@@ -89,7 +105,7 @@ async function setSnapcastVolume(e: Event) {
             <button
               class="px-4 py-2 text-sm rounded-lg transition-colors"
               :class="snapcast.connected
-                ? 'bg-primary text-white'
+                ? 'bg-primary text-surface'
                 : 'bg-surface-hover text-text-muted hover:text-text'"
               :disabled="!snapcastUrl.trim() && !snapcast.connected"
               @click="handleSnapcastToggle"

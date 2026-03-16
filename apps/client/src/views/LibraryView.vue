@@ -268,7 +268,7 @@ onMounted(() => fetchFolder(''))
         </button>
         <span class="flex-1 text-text-muted truncate">{{ folderPath }}</span>
         <button
-          class="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors shrink-0"
+          class="px-3 py-1.5 text-xs bg-primary text-surface rounded-lg hover:bg-primary-hover transition-colors shrink-0"
           @click="playFolder"
         >Play</button>
         <button

@@ -66,7 +66,7 @@ async function replaceAll() {
           <p class="text-sm text-text-muted truncate">{{ artistName }}</p>
           <div class="flex gap-2 mt-3">
             <button
-              class="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+              class="px-3 py-1.5 text-xs bg-primary text-surface rounded-lg hover:bg-primary-hover transition-colors"
               @click="replaceAll"
             >Play</button>
             <button

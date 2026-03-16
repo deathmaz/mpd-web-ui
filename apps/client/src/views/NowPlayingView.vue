@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
           <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
         </svg>
       </button>
-      <button class="w-14 h-14 flex items-center justify-center bg-primary hover:bg-primary-hover rounded-full text-white transition-colors" @click="togglePlay">
+      <button class="w-14 h-14 flex items-center justify-center bg-primary hover:bg-primary-hover rounded-full text-surface transition-colors" @click="togglePlay">
         <svg v-if="player.playState === 'play'" class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
           <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
         </svg>
@@ -200,22 +200,22 @@ onBeforeUnmount(() => {
     <div class="flex items-center justify-center gap-2 mb-2">
       <button
         class="px-3 py-1.5 text-xs rounded-full transition-colors"
-        :class="player.repeat ? 'bg-primary text-white' : 'bg-surface-hover text-text-muted hover:text-text'"
+        :class="player.repeat ? 'bg-primary text-surface' : 'bg-surface-hover text-text-muted hover:text-text'"
         @click="sendCommand('setRepeat', { state: !player.repeat })"
       >Repeat</button>
       <button
         class="px-3 py-1.5 text-xs rounded-full transition-colors"
-        :class="player.random ? 'bg-primary text-white' : 'bg-surface-hover text-text-muted hover:text-text'"
+        :class="player.random ? 'bg-primary text-surface' : 'bg-surface-hover text-text-muted hover:text-text'"
         @click="sendCommand('setRandom', { state: !player.random })"
       >Random</button>
       <button
         class="px-3 py-1.5 text-xs rounded-full transition-colors"
-        :class="player.single ? 'bg-primary text-white' : 'bg-surface-hover text-text-muted hover:text-text'"
+        :class="player.single ? 'bg-primary text-surface' : 'bg-surface-hover text-text-muted hover:text-text'"
         @click="sendCommand('setSingle', { state: !player.single })"
       >Single</button>
       <button
         class="px-3 py-1.5 text-xs rounded-full transition-colors"
-        :class="player.consume ? 'bg-primary text-white' : 'bg-surface-hover text-text-muted hover:text-text'"
+        :class="player.consume ? 'bg-primary text-surface' : 'bg-surface-hover text-text-muted hover:text-text'"
         @click="sendCommand('setConsume', { state: !player.consume })"
       >Consume</button>
     </div>
@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
       <button
         class="flex items-center gap-2 px-4 py-2 text-sm rounded-full transition-colors"
         :class="stream.isPlaying.value
-          ? 'bg-primary text-white'
+          ? 'bg-primary text-surface'
           : 'bg-surface-hover text-text-muted hover:text-text'"
         @click="handleListenToggle"
       >
@@ -237,7 +237,7 @@ onBeforeUnmount(() => {
       <button
         class="flex items-center gap-2 px-4 py-2 text-sm rounded-full transition-colors"
         :class="snapcast.connected
-          ? 'bg-primary text-white'
+          ? 'bg-primary text-surface'
           : 'bg-surface-hover text-text-muted hover:text-text'"
         @pointerdown="onPointerDown"
         @pointerup="onPointerUp"

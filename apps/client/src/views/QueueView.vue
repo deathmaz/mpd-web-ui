@@ -225,8 +225,8 @@ onMounted(async () => {
           <div
             v-else
             :key="vItem.item.key"
-            class="absolute left-0 right-0 flex items-center gap-3 px-4 hover:bg-surface-alt transition-colors cursor-pointer group"
-            :class="{ 'bg-surface-alt': vItem.item.song.Pos === player.currentSong?.Pos }"
+            class="absolute left-0 right-0 flex items-center gap-3 px-4 hover:bg-surface-hover/50 transition-colors cursor-pointer group"
+            :class="{ 'bg-surface-hover/70': vItem.item.song.Pos === player.currentSong?.Pos }"
             :style="{ top: vItem.offsetTop + 'px', height: vItem.height + 'px' }"
             @click="playSong(vItem.item.song.Pos!)"
           >

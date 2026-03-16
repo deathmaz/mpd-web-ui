@@ -54,7 +54,7 @@ async function appendToQueue() {
       </div>
       <div class="flex gap-2">
         <button
-          class="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+          class="px-3 py-1.5 text-xs bg-primary text-surface rounded-lg hover:bg-primary-hover transition-colors"
           @click="loadAndPlay"
         >Play</button>
         <button
