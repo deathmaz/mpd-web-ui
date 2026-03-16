@@ -12,12 +12,23 @@ const HEADER_HEIGHT = 28
 const SONG_HEIGHT = 56
 
 type QueueItem =
-  | { type: 'header'; key: string; album: string; date?: string; artist?: string }
+  | { type: 'header'; key: string; groupKey: string; album: string; date?: string; artist?: string }
   | { type: 'song'; key: string; song: MpdSong }
 
 const player = usePlayerStore()
 const queue = useQueueStore()
 const filter = ref('')
+const collapsedAlbums = ref(new Set<string>())
+
+function albumGroupKey(album: string, artist?: string): string {
+  return `${album}::${artist || ''}`
+}
+
+function toggleAlbum(key: string) {
+  const s = new Set(collapsedAlbums.value)
+  s.has(key) ? s.delete(key) : s.add(key)
+  collapsedAlbums.value = s
+}
 
 const filteredSongs = computed(() => {
   const q = filter.value.toLowerCase().trim()
@@ -32,22 +43,53 @@ const filteredSongs = computed(() => {
 
 const flatItems = computed<QueueItem[]>(() => {
   const songs = filteredSongs.value
+  const collapsed = collapsedAlbums.value
   const result: QueueItem[] = []
+  let currentGroupKey = ''
   for (let i = 0; i < songs.length; i++) {
     const song = songs[i]
     if (song.Album && (i === 0 || song.Album !== songs[i - 1]?.Album || song.AlbumArtist !== songs[i - 1]?.AlbumArtist)) {
+      currentGroupKey = albumGroupKey(song.Album, song.AlbumArtist || song.Artist)
       result.push({
         type: 'header',
         key: `h-${result.length}`,
+        groupKey: currentGroupKey,
         album: song.Album,
         date: song.Date,
         artist: song.AlbumArtist || song.Artist,
       })
     }
-    result.push({ type: 'song', key: `s-${song.Id}`, song })
+    if (!collapsed.has(currentGroupKey)) {
+      result.push({ type: 'song', key: `s-${song.Id}`, song })
+    }
   }
   return result
 })
+
+const allCollapsed = computed(() => {
+  const items = flatItems.value
+  const collapsed = collapsedAlbums.value
+  let headerCount = 0
+  for (const item of items) {
+    if (item.type === 'header') {
+      headerCount++
+      if (!collapsed.has(item.groupKey)) return false
+    }
+  }
+  return headerCount > 0
+})
+
+function collapseAll() {
+  const keys = new Set<string>()
+  for (const item of flatItems.value) {
+    if (item.type === 'header') keys.add(item.groupKey)
+  }
+  collapsedAlbums.value = keys
+}
+
+function expandAll() {
+  collapsedAlbums.value = new Set()
+}
 
 const { containerRef, scrollTop, prefixSums, totalHeight, visibleItems, scrollToIndex, resetScroll } = useVirtualList({
   items: flatItems,
@@ -89,16 +131,24 @@ async function removeSong(id: number) {
 
 watch(filter, () => resetScroll())
 
-// Scroll to current song on mount
-onMounted(() => {
-  nextTick(() => {
-    const currentPos = player.currentSong?.Pos
-    if (currentPos == null) return
-    const idx = flatItems.value.findIndex(
-      (item) => item.type === 'song' && item.song.Pos === currentPos,
-    )
-    if (idx >= 0) scrollToIndex(idx, 'center')
-  })
+// Scroll to current song on mount (expand its album if collapsed)
+onMounted(async () => {
+  await nextTick()
+  const currentSong = player.currentSong
+  if (currentSong?.Pos == null) return
+  if (currentSong.Album) {
+    const key = albumGroupKey(currentSong.Album, currentSong.AlbumArtist || currentSong.Artist)
+    if (collapsedAlbums.value.has(key)) {
+      const s = new Set(collapsedAlbums.value)
+      s.delete(key)
+      collapsedAlbums.value = s
+      await nextTick()
+    }
+  }
+  const idx = flatItems.value.findIndex(
+    (item) => item.type === 'song' && item.song.Pos === currentSong.Pos,
+  )
+  if (idx >= 0) scrollToIndex(idx, 'center')
 })
 </script>
 
@@ -111,6 +161,10 @@ onMounted(() => {
         <p class="text-xs text-text-muted">{{ summary }}</p>
       </div>
       <div class="flex gap-2">
+        <button
+          class="px-3 py-1.5 text-xs bg-surface-hover hover:bg-surface-hover/80 rounded-lg text-text-muted hover:text-text transition-colors"
+          @click="allCollapsed ? expandAll() : collapseAll()"
+        >{{ allCollapsed ? 'Expand' : 'Collapse' }}</button>
         <button
           class="px-3 py-1.5 text-xs bg-surface-hover hover:bg-surface-hover/80 rounded-lg text-text-muted hover:text-text transition-colors"
           @click="sendCommand('shuffle')"
@@ -140,9 +194,11 @@ onMounted(() => {
       <div class="sticky top-0 z-10" style="height: 0;">
         <div
           v-if="stickyHeader"
-          class="flex items-center gap-2 px-4 bg-surface-hover border-b border-border"
+          class="flex items-center gap-2 px-4 bg-surface-hover border-b border-border cursor-pointer select-none"
           :style="{ height: HEADER_HEIGHT + 'px' }"
+          @click="toggleAlbum(stickyHeader.groupKey)"
         >
+          <svg class="w-3 h-3 text-text-muted shrink-0 transition-transform" :class="{ '-rotate-90': collapsedAlbums.has(stickyHeader.groupKey) }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
           <span class="text-xs font-medium text-text-muted truncate">{{ stickyHeader.album }}</span>
           <span v-if="stickyHeader.date" class="text-xs text-text-muted/60 truncate">({{ stickyHeader.date.slice(0, 4) }})</span>
           <span v-if="stickyHeader.artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ stickyHeader.artist }}</span>
@@ -156,9 +212,11 @@ onMounted(() => {
           <div
             v-if="vItem.item.type === 'header'"
             :key="vItem.item.key"
-            class="absolute left-0 right-0 flex items-center gap-2 px-4 bg-surface-hover border-t border-border"
+            class="absolute left-0 right-0 flex items-center gap-2 px-4 bg-surface-hover border-t border-border cursor-pointer select-none"
             :style="{ top: vItem.offsetTop + 'px', height: vItem.height + 'px' }"
+            @click="toggleAlbum(vItem.item.groupKey)"
           >
+            <svg class="w-3 h-3 text-text-muted shrink-0 transition-transform" :class="{ '-rotate-90': collapsedAlbums.has(vItem.item.groupKey) }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             <span class="text-xs font-medium text-text-muted truncate">{{ vItem.item.album }}</span>
             <span v-if="vItem.item.date" class="text-xs text-text-muted/60 truncate">({{ vItem.item.date.slice(0, 4) }})</span>
             <span v-if="vItem.item.artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ vItem.item.artist }}</span>
