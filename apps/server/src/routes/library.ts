@@ -14,17 +14,18 @@ export async function libraryRoutes(fastify: FastifyInstance): Promise<void> {
       const mpd = getMpdClient()
       const albums = await mpd.listAlbums(request.query.artist)
 
-      // Fetch first song of each album to get a file path for cover art
-      const albumsWithCover = await Promise.all(
-        albums.map(async (a) => {
-          try {
-            const songs = await mpd.findAlbumSongs(a.album, a.artist)
-            return { ...a, coverFile: songs[0]?.file || null }
-          } catch {
-            return { ...a, coverFile: null }
-          }
-        }),
-      )
+      // Batch: get first song file of each album for cover art in one round trip
+      let coverFiles: (string | null)[]
+      try {
+        coverFiles = await mpd.findAlbumCoverFilesBatch(albums)
+      } catch {
+        coverFiles = albums.map(() => null)
+      }
+
+      const albumsWithCover = albums.map((a, i) => ({
+        ...a,
+        coverFile: coverFiles[i] ?? null,
+      }))
 
       return { albums: albumsWithCover }
     },
