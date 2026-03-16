@@ -2,15 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { addClient, broadcast } from '../broadcaster.js'
 
-function createMockWs(readyState = 1 /* OPEN */) {
+function createMockWs(readyState = 1 /* OPEN */, bufferedAmount = 0) {
   const ws = new EventEmitter() as EventEmitter & {
     readyState: number
     OPEN: number
+    bufferedAmount: number
     send: ReturnType<typeof vi.fn>
     close: ReturnType<typeof vi.fn>
   }
   ws.readyState = readyState
   ws.OPEN = 1
+  ws.bufferedAmount = bufferedAmount
   ws.send = vi.fn()
   ws.close = vi.fn()
   return ws
@@ -90,6 +92,78 @@ describe('broadcaster', () => {
       wsGood.send.mockClear()
       broadcast({ type: 'mixer', volume: 60 } as any)
       expect(wsGood.send).toHaveBeenCalledOnce()
+
+      cleanupClient(wsGood)
+    })
+
+    it('skips clients with high bufferedAmount', () => {
+      const wsGood = createMockWs(1, 0)
+      const wsSlow = createMockWs(1, 2 * 1024 * 1024) // 2MB buffered
+      addClient(wsGood as any)
+      addClient(wsSlow as any)
+
+      broadcast({ type: 'mixer', volume: 50 } as any)
+
+      expect(wsGood.send).toHaveBeenCalledOnce()
+      expect(wsSlow.send).not.toHaveBeenCalled()
+
+      cleanupClient(wsGood)
+      cleanupClient(wsSlow)
+    })
+
+    it('disconnects clients after too many consecutive drops', () => {
+      const wsSlow = createMockWs(1, 2 * 1024 * 1024)
+      addClient(wsSlow as any)
+
+      // Send 10 broadcasts — all dropped due to high bufferedAmount
+      for (let i = 0; i < 10; i++) {
+        broadcast({ type: 'mixer', volume: i } as any)
+      }
+
+      expect(wsSlow.send).not.toHaveBeenCalled()
+      expect(wsSlow.close).toHaveBeenCalledWith(1008, 'Too slow')
+    })
+
+    it('resets drop counter on successful send', () => {
+      const ws = createMockWs(1, 2 * 1024 * 1024)
+      addClient(ws as any)
+
+      // Drop 9 messages (one below threshold)
+      for (let i = 0; i < 9; i++) {
+        broadcast({ type: 'mixer', volume: i } as any)
+      }
+      expect(ws.send).not.toHaveBeenCalled()
+      expect(ws.close).not.toHaveBeenCalled()
+
+      // Buffer clears — next send succeeds, counter resets
+      ws.bufferedAmount = 0
+      broadcast({ type: 'mixer', volume: 99 } as any)
+      expect(ws.send).toHaveBeenCalledOnce()
+
+      // Another 9 drops should NOT trigger disconnect (counter was reset)
+      ws.bufferedAmount = 2 * 1024 * 1024
+      for (let i = 0; i < 9; i++) {
+        broadcast({ type: 'mixer', volume: i } as any)
+      }
+      expect(ws.close).not.toHaveBeenCalled()
+
+      cleanupClient(ws)
+    })
+
+    it('healthy clients are unaffected by one slow client', () => {
+      const wsGood = createMockWs(1, 0)
+      const wsSlow = createMockWs(1, 2 * 1024 * 1024)
+      addClient(wsGood as any)
+      addClient(wsSlow as any)
+
+      for (let i = 0; i < 15; i++) {
+        broadcast({ type: 'mixer', volume: i } as any)
+      }
+
+      // Good client received all 15
+      expect(wsGood.send).toHaveBeenCalledTimes(15)
+      // Slow client was disconnected after 10 drops
+      expect(wsSlow.close).toHaveBeenCalledWith(1008, 'Too slow')
 
       cleanupClient(wsGood)
     })
