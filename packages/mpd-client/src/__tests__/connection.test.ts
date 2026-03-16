@@ -47,6 +47,13 @@ function createTestConnection() {
       ;(conn as any).pendingBinary = null
       pendingBin.reject(new Error('Connection closed'))
     }
+    const pendingList = (conn as any).pendingCommandList
+    if (pendingList) {
+      ;(conn as any).pendingCommandList = null
+      ;(conn as any).commandListBuffers = []
+      ;(conn as any).commandListCurrent = ''
+      pendingList.reject(new Error('Connection closed'))
+    }
     for (const cmd of (conn as any).commandQueue) {
       cmd.reject(new Error('Connection closed'))
     }
@@ -334,6 +341,112 @@ describe('MpdConnection', () => {
       // Should reject with Not connected, not crash with null.write
       const promise = conn.sendCommand('status')
       await expect(promise).rejects.toThrow('Not connected')
+    })
+  })
+
+  describe('command list (command_list_ok_begin)', () => {
+    it('sends correct wire format', async () => {
+      const { conn, socket, feed } = createTestConnection()
+
+      const promise = conn.sendCommandList(['find Album "A"', 'find Album "B"'])
+
+      expect(socket.write).toHaveBeenCalledWith(
+        'command_list_ok_begin\nfind Album "A"\nfind Album "B"\ncommand_list_end\n',
+      )
+
+      feed('file: a.mp3\nTitle: A\nlist_OK\nfile: b.mp3\nTitle: B\nlist_OK\nOK\n')
+
+      const result = await promise
+      expect(result).toHaveLength(3) // 2 commands + trailing empty after last list_OK
+      expect(result[0]).toBe('file: a.mp3\nTitle: A\n')
+      expect(result[1]).toBe('file: b.mp3\nTitle: B\n')
+      expect(result[2]).toBe('') // trailing segment between last list_OK and OK
+    })
+
+    it('handles empty responses per command', async () => {
+      const { conn, feed } = createTestConnection()
+
+      const promise = conn.sendCommandList(['add "a.mp3"', 'add "b.mp3"'])
+
+      feed('list_OK\nlist_OK\nOK\n')
+
+      const result = await promise
+      expect(result).toHaveLength(3)
+      expect(result[0]).toBe('')
+      expect(result[1]).toBe('')
+      expect(result[2]).toBe('')
+    })
+
+    it('rejects on ACK error', async () => {
+      const { conn, feed } = createTestConnection()
+
+      const promise = conn.sendCommandList(['play 999'])
+
+      feed('ACK [50@0] {play} No such song\n')
+
+      await expect(promise).rejects.toBeInstanceOf(MpdError)
+    })
+
+    it('handles chunked data across TCP packets', async () => {
+      const { conn, feed } = createTestConnection()
+
+      const promise = conn.sendCommandList(['status', 'currentsong'])
+
+      feed('volume: 80\nrep')
+      feed('eat: 0\nlist_OK\nfile: s')
+      feed('ong.mp3\nlist_OK\nOK\n')
+
+      const result = await promise
+      expect(result[0]).toBe('volume: 80\nrepeat: 0\n')
+      expect(result[1]).toBe('file: song.mp3\n')
+    })
+
+    it('processes next queued command after command list completes', async () => {
+      const { conn, socket, feed } = createTestConnection()
+
+      const p1 = conn.sendCommandList(['find Album "A"'])
+      const p2 = conn.sendCommand('status')
+
+      expect(socket.write).toHaveBeenCalledTimes(1)
+
+      feed('file: a.mp3\nlist_OK\nOK\n')
+      await p1
+
+      expect(socket.write).toHaveBeenCalledTimes(2)
+      expect(socket.write).toHaveBeenLastCalledWith('status\n')
+
+      feed('volume: 50\nOK\n')
+      const r2 = await p2
+      expect(r2).toBe('volume: 50\n')
+    })
+
+    it('rejects on disconnect', async () => {
+      const { conn, socket } = createTestConnection()
+
+      const promise = conn.sendCommandList(['status'])
+      socket.emit('close')
+
+      await expect(promise).rejects.toThrow('Connection closed')
+    })
+
+    it('rejects when not connected', async () => {
+      const { conn } = createTestConnection()
+      ;(conn as any)._connected = false
+
+      await expect(conn.sendCommandList(['status'])).rejects.toThrow('Not connected')
+    })
+
+    it('applies 10s timeout to command lists', async () => {
+      vi.useFakeTimers()
+      const { conn, socket } = createTestConnection()
+
+      const promise = conn.sendCommandList(['find Album "A"'])
+
+      vi.advanceTimersByTime(10_000)
+
+      await expect(promise).rejects.toThrow('Connection closed')
+      expect(socket.destroy).toHaveBeenCalled()
+      vi.useRealTimers()
     })
   })
 })

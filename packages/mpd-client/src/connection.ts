@@ -12,6 +12,11 @@ interface PendingBinaryCommand {
   reject: (err: Error) => void
 }
 
+interface PendingCommandList {
+  resolve: (data: string[]) => void
+  reject: (err: Error) => void
+}
+
 const NEWLINE = 0x0a // '\n'
 
 /**
@@ -31,9 +36,13 @@ export class MpdConnection extends EventEmitter {
   private binaryHeaders: Map<string, string> = new Map()
   private pendingCommand: PendingCommand | null = null
   private pendingBinary: PendingBinaryCommand | null = null
+  private pendingCommandList: PendingCommandList | null = null
+  private commandListBuffers: string[] = []
+  private commandListCurrent = ''
   private commandQueue: Array<{
     command: string
     binary: boolean
+    commandList: boolean
     resolve: (v: any) => void
     reject: (e: Error) => void
   }> = []
@@ -108,6 +117,12 @@ export class MpdConnection extends EventEmitter {
           this.pendingBinary.reject(new Error('Connection closed'))
           this.pendingBinary = null
         }
+        if (this.pendingCommandList) {
+          this.pendingCommandList.reject(new Error('Connection closed'))
+          this.pendingCommandList = null
+          this.commandListBuffers = []
+          this.commandListCurrent = ''
+        }
         for (const cmd of this.commandQueue) {
           cmd.reject(new Error('Connection closed'))
         }
@@ -140,7 +155,7 @@ export class MpdConnection extends EventEmitter {
         reject(new Error('Not connected'))
         return
       }
-      this.commandQueue.push({ command, binary: false, resolve, reject })
+      this.commandQueue.push({ command, binary: false, commandList: false, resolve, reject })
       this.processQueue()
     })
   }
@@ -153,7 +168,19 @@ export class MpdConnection extends EventEmitter {
         reject(new Error('Not connected'))
         return
       }
-      this.commandQueue.push({ command, binary: true, resolve, reject })
+      this.commandQueue.push({ command, binary: true, commandList: false, resolve, reject })
+      this.processQueue()
+    })
+  }
+
+  sendCommandList(commands: string[]): Promise<string[]> {
+    return new Promise((resolve, reject) => {
+      if (!this._connected) {
+        reject(new Error('Not connected'))
+        return
+      }
+      const command = ['command_list_ok_begin', ...commands, 'command_list_end'].join('\n')
+      this.commandQueue.push({ command, binary: false, commandList: true, resolve, reject })
       this.processQueue()
     })
   }
@@ -178,7 +205,11 @@ export class MpdConnection extends EventEmitter {
     this.processing = true
 
     const next = this.commandQueue.shift()!
-    if (next.binary) {
+    if (next.commandList) {
+      this.pendingCommandList = { resolve: next.resolve, reject: next.reject }
+      this.commandListBuffers = []
+      this.commandListCurrent = ''
+    } else if (next.binary) {
       this.pendingBinary = { resolve: next.resolve, reject: next.reject }
     } else {
       this.pendingCommand = { resolve: next.resolve, reject: next.reject }
@@ -270,9 +301,23 @@ export class MpdConnection extends EventEmitter {
       const line = lineBytes.toString('utf-8')
       this.rawBuffer = rest
 
+      if (line === 'list_OK' && this.pendingCommandList) {
+        this.commandListBuffers.push(this.commandListCurrent)
+        this.commandListCurrent = ''
+        continue
+      }
+
       if (line === 'OK') {
         this.clearCommandTimer()
-        if (this.pendingBinary) {
+        if (this.pendingCommandList) {
+          this.commandListBuffers.push(this.commandListCurrent)
+          const pending = this.pendingCommandList
+          const results = this.commandListBuffers
+          this.pendingCommandList = null
+          this.commandListBuffers = []
+          this.commandListCurrent = ''
+          pending.resolve(results)
+        } else if (this.pendingBinary) {
           const pending = this.pendingBinary
           this.pendingBinary = null
           pending.resolve({
@@ -295,7 +340,13 @@ export class MpdConnection extends EventEmitter {
       const ack = parseAck(line)
       if (ack) {
         this.clearCommandTimer()
-        if (this.pendingBinary) {
+        if (this.pendingCommandList) {
+          const pending = this.pendingCommandList
+          this.pendingCommandList = null
+          this.commandListBuffers = []
+          this.commandListCurrent = ''
+          pending.reject(ack)
+        } else if (this.pendingBinary) {
           const pending = this.pendingBinary
           this.pendingBinary = null
           pending.reject(ack)
@@ -313,7 +364,9 @@ export class MpdConnection extends EventEmitter {
       }
 
       // Accumulate key-value lines
-      if (this.pendingBinary) {
+      if (this.pendingCommandList) {
+        this.commandListCurrent += line + '\n'
+      } else if (this.pendingBinary) {
         const colonIdx = line.indexOf(': ')
         if (colonIdx !== -1) {
           this.binaryHeaders.set(

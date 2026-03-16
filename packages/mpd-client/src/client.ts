@@ -278,6 +278,10 @@ export class MpdClient extends EventEmitter {
     await this.cmdConn.sendCommand(commands.join('\n'))
   }
 
+  async commandListOk(commands: string[]): Promise<string[]> {
+    return this.cmdConn.sendCommandList(commands)
+  }
+
   async addId(uri: string, position?: number): Promise<number> {
     const cmd =
       position !== undefined
