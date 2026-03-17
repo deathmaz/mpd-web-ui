@@ -292,6 +292,16 @@ export class MpdClient extends EventEmitter {
     return parseInt(m.get('Id') || '0')
   }
 
+  async deleteMultipleIds(ids: number[]): Promise<void> {
+    if (ids.length === 0) return
+    const commands = ['command_list_begin']
+    for (const id of ids) {
+      commands.push(`deleteid ${id}`)
+    }
+    commands.push('command_list_end')
+    await this.cmdConn.sendCommand(commands.join('\n'))
+  }
+
   async deletePos(pos: number): Promise<void> {
     await this.cmdConn.sendCommand(`delete ${pos}`)
   }

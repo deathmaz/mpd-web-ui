@@ -129,6 +129,25 @@ async function removeSong(id: number) {
   await sendCommand('deleteId', { id })
 }
 
+async function removeAlbum(groupKey: string) {
+  const songs = filteredSongs.value
+  const ids: number[] = []
+  let currentKey = ''
+  for (let i = 0; i < songs.length; i++) {
+    const song = songs[i]
+    if (song.Album && (i === 0 || song.Album !== songs[i - 1]?.Album || song.AlbumArtist !== songs[i - 1]?.AlbumArtist)) {
+      currentKey = albumGroupKey(song.Album, song.AlbumArtist || song.Artist)
+      if (ids.length > 0) break // past the target group
+    }
+    if (currentKey === groupKey && song.Id != null) {
+      ids.push(song.Id)
+    }
+  }
+  if (ids.length > 0) {
+    await sendCommand('deleteMultipleIds', { ids })
+  }
+}
+
 watch(filter, () => resetScroll())
 
 // Scroll to current song on mount (expand its album if collapsed)
@@ -201,7 +220,15 @@ onMounted(async () => {
           <svg class="w-3 h-3 text-text-muted shrink-0 transition-transform" :class="{ '-rotate-90': collapsedAlbums.has(stickyHeader.groupKey) }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
           <span class="text-xs font-medium text-text-muted truncate">{{ stickyHeader.album }}</span>
           <span v-if="stickyHeader.date" class="text-xs text-text-muted/60 truncate">({{ stickyHeader.date.slice(0, 4) }})</span>
-          <span v-if="stickyHeader.artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ stickyHeader.artist }}</span>
+          <span v-if="stickyHeader.artist" class="flex-1 text-xs text-text-muted/60 truncate">&mdash; {{ stickyHeader.artist }}</span>
+          <button
+            class="w-5 h-5 flex items-center justify-center text-text-muted hover:text-red-400 shrink-0 ml-auto"
+            @click.stop="removeAlbum(stickyHeader.groupKey)"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -219,7 +246,15 @@ onMounted(async () => {
             <svg class="w-3 h-3 text-text-muted shrink-0 transition-transform" :class="{ '-rotate-90': collapsedAlbums.has(vItem.item.groupKey) }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
             <span class="text-xs font-medium text-text-muted truncate">{{ vItem.item.album }}</span>
             <span v-if="vItem.item.date" class="text-xs text-text-muted/60 truncate">({{ vItem.item.date.slice(0, 4) }})</span>
-            <span v-if="vItem.item.artist" class="text-xs text-text-muted/60 truncate">&mdash; {{ vItem.item.artist }}</span>
+            <span v-if="vItem.item.artist" class="flex-1 text-xs text-text-muted/60 truncate">&mdash; {{ vItem.item.artist }}</span>
+            <button
+              class="w-5 h-5 flex items-center justify-center text-text-muted hover:text-red-400 shrink-0 ml-auto"
+              @click.stop="removeAlbum(vItem.item.groupKey)"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           <!-- Song row -->
           <div

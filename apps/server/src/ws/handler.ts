@@ -80,6 +80,9 @@ async function handleCommand(
       case 'deleteId':
         await mpd.deleteId(args.id as number)
         break
+      case 'deleteMultipleIds':
+        await mpd.deleteMultipleIds(args.ids as number[])
+        break
       case 'move':
         await mpd.move(args.from as number, args.to as number)
         break
