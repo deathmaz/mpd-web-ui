@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import fastifyWebsocket from '@fastify/websocket'
 import fastifyCors from '@fastify/cors'
 import fastifyStatic from '@fastify/static'
+import fastifyCompress from '@fastify/compress'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync } from 'fs'
@@ -21,6 +22,7 @@ async function main() {
   const fastify = Fastify({ logger: true })
 
   // Plugins
+  await fastify.register(fastifyCompress)
   await fastify.register(fastifyCors, { origin: true })
   await fastify.register(fastifyWebsocket)
 
