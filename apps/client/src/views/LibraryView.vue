@@ -153,9 +153,30 @@ async function addFolder() {
   await sendCommand('add', { uri: folderPath.value })
 }
 
-async function addArtist(artist: string) {
-  const res = await fetch(`/api/library/albums?artist=${encodeURIComponent(artist)}`)
+async function playAlbum(album: string, artist: string) {
+  const res = await fetch(`/api/library/songs?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`)
   if (!res.ok) return
+  const data = await res.json()
+  const uris = data.songs.map((s: { file: string }) => s.file)
+  if (uris.length === 0) return
+  await sendCommand('clear')
+  await sendCommand('addMultiple', { uris })
+  await sendCommand('play', { pos: 0 })
+}
+
+async function addAlbum(album: string, artist: string) {
+  const res = await fetch(`/api/library/songs?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`)
+  if (!res.ok) return
+  const data = await res.json()
+  const uris = data.songs.map((s: { file: string }) => s.file)
+  if (uris.length > 0) {
+    await sendCommand('addMultiple', { uris })
+  }
+}
+
+async function fetchArtistUris(artist: string): Promise<string[]> {
+  const res = await fetch(`/api/library/albums?artist=${encodeURIComponent(artist)}`)
+  if (!res.ok) return []
   const data = await res.json()
   const allUris: string[] = []
   await Promise.all(
@@ -168,8 +189,21 @@ async function addArtist(artist: string) {
       }
     }),
   )
-  if (allUris.length > 0) {
-    await sendCommand('addMultiple', { uris: allUris })
+  return allUris
+}
+
+async function playArtist(artist: string) {
+  const uris = await fetchArtistUris(artist)
+  if (uris.length === 0) return
+  await sendCommand('clear')
+  await sendCommand('addMultiple', { uris })
+  await sendCommand('play', { pos: 0 })
+}
+
+async function addArtist(artist: string) {
+  const uris = await fetchArtistUris(artist)
+  if (uris.length > 0) {
+    await sendCommand('addMultiple', { uris })
   }
 }
 
@@ -226,7 +260,11 @@ onMounted(() => fetchFolder(''))
           </div>
           <span class="flex-1 text-sm truncate">{{ vItem.item }}</span>
           <button
-            class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity"
+            class="px-2 py-1 text-xs bg-primary text-surface rounded hover:bg-primary-hover md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            @click.stop="playArtist(vItem.item)"
+          >Play</button>
+          <button
+            class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             @click.stop="addArtist(vItem.item)"
           >Add</button>
         </div>
@@ -242,7 +280,7 @@ onMounted(() => fetchFolder(''))
         <div
           v-for="vItem in albumsVl.visibleItems.value"
           :key="`${vItem.item.artist}-${vItem.item.album}`"
-          class="absolute left-0 right-0 flex items-center gap-3 px-4 hover:bg-surface-alt transition-colors cursor-pointer"
+          class="absolute left-0 right-0 flex items-center gap-3 px-4 hover:bg-surface-alt transition-colors cursor-pointer group"
           :style="{ top: vItem.offsetTop + 'px', height: vItem.height + 'px' }"
           @click="goToAlbum(vItem.item.album, vItem.item.artist)"
         >
@@ -253,6 +291,14 @@ onMounted(() => fetchFolder(''))
             <p class="text-sm truncate">{{ vItem.item.album }}</p>
             <p class="text-xs text-text-muted truncate">{{ vItem.item.artist }}</p>
           </div>
+          <button
+            class="px-2 py-1 text-xs bg-primary text-surface rounded hover:bg-primary-hover md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            @click.stop="playAlbum(vItem.item.album, vItem.item.artist)"
+          >Play</button>
+          <button
+            class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            @click.stop="addAlbum(vItem.item.album, vItem.item.artist)"
+          >Add</button>
         </div>
       </div>
     </div>
@@ -312,9 +358,13 @@ onMounted(() => fetchFolder(''))
               {{ formatDuration(vItem.item.duration || vItem.item.Time) }}
             </span>
 
-            <!-- Add button -->
+            <!-- Play / Add buttons -->
             <button
-              class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              class="px-2 py-1 text-xs bg-primary text-surface rounded hover:bg-primary-hover md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              @click.stop="playEntry(vItem.item)"
+            >Play</button>
+            <button
+              class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               @click.stop="addEntry(vItem.item)"
             >Add</button>
           </div>

@@ -25,6 +25,16 @@ function goToAlbum(album: string) {
   router.push({ name: 'album-detail', query: { album, artist: artistName } })
 }
 
+async function playAlbum(album: string) {
+  const res = await fetch(`/api/library/songs?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artistName)}`)
+  if (!res.ok) return
+  const uris = (await res.json()).songs.map((s: { file: string }) => s.file)
+  if (uris.length === 0) return
+  await sendCommand('clear')
+  await sendCommand('addMultiple', { uris })
+  await sendCommand('play', { pos: 0 })
+}
+
 async function addAlbum(album: string) {
   const res = await fetch(`/api/library/songs?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artistName)}`)
   if (!res.ok) return
@@ -58,7 +68,11 @@ async function addAlbum(album: string) {
         </div>
         <span class="flex-1 text-sm truncate">{{ item.album }}</span>
         <button
-          class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity"
+          class="px-2 py-1 text-xs bg-primary text-surface rounded hover:bg-primary-hover md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          @click.stop="playAlbum(item.album)"
+        >Play</button>
+        <button
+          class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           @click.stop="addAlbum(item.album)"
         >Add</button>
       </div>

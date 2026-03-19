@@ -23,6 +23,12 @@ function viewPlaylist(name: string) {
   router.push({ name: 'playlist-detail', params: { name } })
 }
 
+async function playPlaylist(name: string) {
+  await sendCommand('clear')
+  await sendCommand('loadPlaylist', { name })
+  await sendCommand('play', { pos: 0 })
+}
+
 async function loadPlaylist(name: string) {
   await sendCommand('loadPlaylist', { name })
 }
@@ -56,7 +62,11 @@ async function loadPlaylist(name: string) {
           <p class="text-sm truncate">{{ pl.playlist }}</p>
         </div>
         <button
-          class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity"
+          class="px-2 py-1 text-xs bg-primary text-surface rounded hover:bg-primary-hover md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          @click.stop="playPlaylist(pl.playlist)"
+        >Play</button>
+        <button
+          class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           @click.stop="loadPlaylist(pl.playlist)"
         >Load</button>
       </div>
