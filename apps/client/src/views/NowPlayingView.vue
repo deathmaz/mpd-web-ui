@@ -154,7 +154,7 @@ onBeforeUnmount(() => {
     <div class="text-center mb-4">
       <h2 class="text-lg font-semibold truncate">{{ title }}</h2>
       <p class="text-sm text-text-muted truncate">{{ artist }}</p>
-      <p class="text-xs text-text-muted truncate">{{ album }}</p>
+      <p class="text-xs text-text-muted truncate">{{ album }}<span v-if="player.bitrate"> &middot; {{ player.bitrate }} kbps</span></p>
     </div>
 
     <!-- Progress bar (seekable) -->
