@@ -63,7 +63,7 @@ async function replaceAll() {
         </div>
         <div class="flex-1 min-w-0">
           <h1 class="text-lg font-semibold truncate">{{ albumName }}</h1>
-          <p class="text-sm text-text-muted truncate">{{ artistName }}</p>
+          <p class="text-sm text-text-muted truncate">{{ artistName }}<span v-if="songs[0]?.Date" class="text-text-muted/60"> &middot; {{ songs[0].Date.slice(0, 4) }}</span></p>
           <div class="flex gap-2 mt-3">
             <button
               class="px-3 py-1.5 text-xs bg-primary text-surface rounded-lg hover:bg-primary-hover transition-colors"
