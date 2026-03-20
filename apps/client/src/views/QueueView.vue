@@ -8,6 +8,7 @@ import { formatDuration, formatTotalDuration } from '@/utils/format'
 import FilterInput from '@/components/common/FilterInput.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
 import AlbumLink from '@/components/common/AlbumLink.vue'
+import SavePlaylistDialog from '@/components/queue/SavePlaylistDialog.vue'
 import type { MpdSong } from '@mpd-web/shared'
 
 const HEADER_HEIGHT = 28
@@ -21,6 +22,7 @@ const player = usePlayerStore()
 const queue = useQueueStore()
 const filter = ref('')
 const collapsedAlbums = ref(new Set<string>())
+const showSaveDialog = ref(false)
 
 function albumGroupKey(album: string, artist?: string): string {
   return `${album}::${artist || ''}`
@@ -188,8 +190,8 @@ onMounted(async () => {
         >{{ allCollapsed ? 'Expand' : 'Collapse' }}</button>
         <button
           class="px-3 py-1.5 text-xs bg-surface-hover hover:bg-surface-hover/80 rounded-lg text-text-muted hover:text-text transition-colors"
-          @click="sendCommand('shuffle')"
-        >Shuffle</button>
+          @click="showSaveDialog = true"
+        >Save</button>
         <button
           class="px-3 py-1.5 text-xs bg-surface-hover hover:bg-surface-hover/80 rounded-lg text-text-muted hover:text-text transition-colors"
           @click="sendCommand('clear')"
@@ -304,5 +306,7 @@ onMounted(async () => {
         </template>
       </div>
     </div>
+
+    <SavePlaylistDialog v-if="showSaveDialog" @close="showSaveDialog = false" />
   </div>
 </template>

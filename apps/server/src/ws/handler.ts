@@ -95,6 +95,12 @@ async function handleCommand(
       case 'loadPlaylist':
         await mpd.loadPlaylist(args.name as string)
         break
+      case 'savePlaylist':
+        await mpd.savePlaylist(args.name as string)
+        break
+      case 'deletePlaylist':
+        await mpd.deletePlaylist(args.name as string)
+        break
       case 'enableOutput':
         await mpd.enableOutput(args.id as number)
         break
