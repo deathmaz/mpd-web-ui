@@ -7,7 +7,7 @@ import AlbumArt from '@/components/common/AlbumArt.vue'
 const route = useRoute()
 const router = useRouter()
 const artistName = route.params.name as string
-const albums = ref<{ album: string; artist: string; coverFile: string | null }[]>([])
+const albums = ref<{ album: string; artist: string; date?: string; coverFile: string | null }[]>([])
 const loading = ref(true)
 
 onMounted(async () => {
@@ -66,7 +66,10 @@ async function addAlbum(album: string) {
         <div class="w-12 h-12 rounded bg-surface-hover shrink-0 overflow-hidden">
           <AlbumArt :src="item.coverFile ? `/api/art/${encodeURIComponent(item.coverFile)}` : null" />
         </div>
-        <span class="flex-1 text-sm truncate">{{ item.album }}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm truncate">{{ item.album }}</p>
+          <p v-if="item.date" class="text-xs text-text-muted truncate">{{ item.date.slice(0, 4) }}</p>
+        </div>
         <button
           class="px-2 py-1 text-xs bg-primary text-surface rounded hover:bg-primary-hover md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           @click.stop="playAlbum(item.album)"

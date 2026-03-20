@@ -445,20 +445,29 @@ export class MpdClient extends EventEmitter {
     albums: Array<{ album: string; artist?: string }>,
     chunkSize = 200,
   ): Promise<(string | null)[]> {
+    const info = await this.findAlbumInfoBatch(albums, chunkSize)
+    return info.map(i => i.coverFile)
+  }
+
+  async findAlbumInfoBatch(
+    albums: Array<{ album: string; artist?: string }>,
+    chunkSize = 200,
+  ): Promise<{ coverFile: string | null; date: string | null }[]> {
     if (albums.length === 0) return []
 
-    const results: (string | null)[] = []
+    const results: { coverFile: string | null; date: string | null }[] = []
     for (let i = 0; i < albums.length; i += chunkSize) {
       const chunk = albums.slice(i, i + chunkSize)
       const commands = chunk.map(({ album, artist }) =>
         this.buildFindAlbumCommand(album, artist) + ' window 0:1',
       )
       const responses = await this.cmdConn.sendCommandList(commands)
-      // sendCommandList returns N+1 entries (trailing empty after last list_OK);
-      // slice to chunk.length to keep results aligned with commands
       for (const r of responses.slice(0, chunk.length)) {
         const m = r ? parseResponse(r) : null
-        results.push(m?.get('file') || null)
+        results.push({
+          coverFile: m?.get('file') || null,
+          date: m?.get('Date') || null,
+        })
       }
     }
     return results
