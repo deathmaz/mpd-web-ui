@@ -9,6 +9,7 @@ import { formatDuration } from '@/utils/format'
 import SnapcastDialog from '@/components/player/SnapcastDialog.vue'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
+import AlbumLink from '@/components/common/AlbumLink.vue'
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -155,7 +156,7 @@ onBeforeUnmount(() => {
     <div class="text-center mb-4">
       <h2 class="text-lg font-semibold truncate">{{ title }}</h2>
       <p v-if="artist" class="text-sm text-text-muted truncate"><ArtistLink :name="artist" /></p>
-      <p class="text-xs text-text-muted truncate">{{ album }}<span v-if="player.bitrate"> &middot; {{ player.bitrate }} kbps</span></p>
+      <p class="text-xs text-text-muted truncate"><AlbumLink v-if="album" :album="album" :artist="artist" /><span v-if="player.bitrate"> &middot; {{ player.bitrate }} kbps</span></p>
     </div>
 
     <!-- Progress bar (seekable) -->

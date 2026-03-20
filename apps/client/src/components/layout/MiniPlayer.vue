@@ -7,6 +7,7 @@ import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
+import AlbumLink from '@/components/common/AlbumLink.vue'
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -51,7 +52,7 @@ async function togglePlay() {
       <!-- Song info -->
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate">{{ title }}</p>
-        <p class="text-xs text-text-muted truncate"><ArtistLink v-if="player.currentSong?.Artist" :name="player.currentSong.Artist" /><span v-if="albumLabel"> &middot; {{ albumLabel }}</span></p>
+        <p class="text-xs text-text-muted truncate"><ArtistLink v-if="player.currentSong?.Artist" :name="player.currentSong.Artist" /><template v-if="player.currentSong?.Album"> &middot; <AlbumLink :album="player.currentSong.Album" :artist="player.currentSong.Artist || ''">{{ albumLabel }}</AlbumLink></template></p>
       </div>
 
       <!-- Timer -->

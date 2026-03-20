@@ -4,6 +4,7 @@ import { sendCommand } from '@/composables/useWebSocket'
 import { useVirtualList } from '@/composables/useVirtualList'
 import { formatDuration } from '@/utils/format'
 import ArtistLink from '@/components/common/ArtistLink.vue'
+import AlbumLink from '@/components/common/AlbumLink.vue'
 import type { MpdSong } from '@mpd-web/shared'
 
 const ROW_HEIGHT = 48
@@ -98,7 +99,7 @@ async function addAndPlay(uri: string) {
           <div class="flex-1 min-w-0">
             <p class="text-sm truncate">{{ vItem.item.Title || vItem.item.file }}</p>
             <p class="text-xs text-text-muted truncate">
-              <ArtistLink v-if="vItem.item.Artist" :name="vItem.item.Artist" /><span v-else>Unknown</span> &middot; {{ vItem.item.Album || '' }}
+              <ArtistLink v-if="vItem.item.Artist" :name="vItem.item.Artist" /><span v-else>Unknown</span><template v-if="vItem.item.Album"> &middot; <AlbumLink :album="vItem.item.Album" :artist="vItem.item.AlbumArtist || vItem.item.Artist || ''" /></template>
             </p>
           </div>
           <span class="text-xs text-text-muted shrink-0">{{ formatDuration(vItem.item.duration || vItem.item.Time) }}</span>

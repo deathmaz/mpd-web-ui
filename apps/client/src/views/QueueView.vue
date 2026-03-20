@@ -7,6 +7,7 @@ import { useVirtualList, findStartIndex } from '@/composables/useVirtualList'
 import { formatDuration, formatTotalDuration } from '@/utils/format'
 import FilterInput from '@/components/common/FilterInput.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
+import AlbumLink from '@/components/common/AlbumLink.vue'
 import type { MpdSong } from '@mpd-web/shared'
 
 const HEADER_HEIGHT = 28
@@ -281,7 +282,7 @@ onMounted(async () => {
                 {{ vItem.item.song.Title || vItem.item.song.file }}
               </p>
               <p class="text-xs text-text-muted truncate">
-                <ArtistLink v-if="vItem.item.song.Artist" :name="vItem.item.song.Artist" /><span v-else>Unknown Artist</span>{{ vItem.item.song.Album ? ` \u00b7 ${vItem.item.song.Album}` : '' }}
+                <ArtistLink v-if="vItem.item.song.Artist" :name="vItem.item.song.Artist" /><span v-else>Unknown Artist</span><template v-if="vItem.item.song.Album"> &middot; <AlbumLink :album="vItem.item.song.Album" :artist="vItem.item.song.AlbumArtist || vItem.item.song.Artist || ''" /></template>
               </p>
             </div>
 

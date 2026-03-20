@@ -7,6 +7,7 @@ import { formatDuration } from '@/utils/format'
 import FilterInput from '@/components/common/FilterInput.vue'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
+import AlbumLink from '@/components/common/AlbumLink.vue'
 import type { MpdDirectoryEntry } from '@mpd-web/shared'
 
 const ARTIST_HEIGHT = 64
@@ -350,7 +351,7 @@ onMounted(() => fetchFolder(''))
             <div class="flex-1 min-w-0">
               <p class="text-sm truncate">{{ vItem.item.type === 'file' && vItem.item.Title ? vItem.item.Title : vItem.item.name }}</p>
               <p v-if="vItem.item.type === 'file' && vItem.item.Artist" class="text-xs text-text-muted truncate">
-                <ArtistLink :name="vItem.item.Artist" />{{ vItem.item.Album ? ` \u00b7 ${vItem.item.Album}` : '' }}
+                <ArtistLink :name="vItem.item.Artist" /><template v-if="vItem.item.Album"> &middot; <AlbumLink :album="vItem.item.Album" :artist="vItem.item.Artist" /></template>
               </p>
             </div>
 
