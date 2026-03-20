@@ -6,6 +6,7 @@ import { useElapsedTime } from '@/composables/useElapsedTime'
 import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
 import AlbumArt from '@/components/common/AlbumArt.vue'
+import ArtistLink from '@/components/common/ArtistLink.vue'
 
 const router = useRouter()
 const player = usePlayerStore()
@@ -17,16 +18,11 @@ const progress = computed(() => {
 })
 
 const title = computed(() => player.currentSong?.Title || 'Not playing')
-const subtitle = computed(() => {
+const albumLabel = computed(() => {
   const song = player.currentSong
-  if (!song) return ''
-  const parts: string[] = []
-  if (song.Artist) parts.push(song.Artist)
-  if (song.Album) {
-    const year = song.Date?.slice(0, 4)
-    parts.push(year ? `${song.Album} (${year})` : song.Album)
-  }
-  return parts.join(' \u00b7 ')
+  if (!song?.Album) return ''
+  const year = song.Date?.slice(0, 4)
+  return year ? `${song.Album} (${year})` : song.Album
 })
 
 async function togglePlay() {
@@ -55,7 +51,7 @@ async function togglePlay() {
       <!-- Song info -->
       <div class="flex-1 min-w-0">
         <p class="text-sm font-medium truncate">{{ title }}</p>
-        <p class="text-xs text-text-muted truncate">{{ subtitle }}</p>
+        <p class="text-xs text-text-muted truncate"><ArtistLink v-if="player.currentSong?.Artist" :name="player.currentSong.Artist" /><span v-if="albumLabel"> &middot; {{ albumLabel }}</span></p>
       </div>
 
       <!-- Timer -->

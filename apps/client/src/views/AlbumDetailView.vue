@@ -5,6 +5,7 @@ import { sendCommand } from '@/composables/useWebSocket'
 import { formatDuration } from '@/utils/format'
 import type { MpdSong } from '@mpd-web/shared'
 import AlbumArt from '@/components/common/AlbumArt.vue'
+import ArtistLink from '@/components/common/ArtistLink.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -63,7 +64,7 @@ async function replaceAll() {
         </div>
         <div class="flex-1 min-w-0">
           <h1 class="text-lg font-semibold truncate">{{ albumName }}</h1>
-          <p class="text-sm text-text-muted truncate">{{ artistName }}<span v-if="songs[0]?.Date" class="text-text-muted/60"> &middot; {{ songs[0].Date.slice(0, 4) }}</span></p>
+          <p class="text-sm text-text-muted truncate"><ArtistLink :name="artistName" /><span v-if="songs[0]?.Date" class="text-text-muted/60"> &middot; {{ songs[0].Date.slice(0, 4) }}</span></p>
           <div class="flex gap-2 mt-3">
             <button
               class="px-3 py-1.5 text-xs bg-primary text-surface rounded-lg hover:bg-primary-hover transition-colors"
