@@ -136,9 +136,19 @@ function goBack() {
   }
 }
 
+async function playUri(uri: string) {
+  await sendCommand('clear')
+  await sendCommand('add', { uri })
+  await sendCommand('play', { pos: 0 })
+}
+
 async function playEntry(entry: MpdDirectoryEntry) {
-  const id = await sendCommand('addId', { uri: entry.path }) as number
-  await sendCommand('playId', { id })
+  if (entry.type === 'directory') {
+    await playUri(entry.path)
+  } else {
+    const id = await sendCommand('addId', { uri: entry.path }) as number
+    await sendCommand('playId', { id })
+  }
 }
 
 async function addEntry(entry: MpdDirectoryEntry) {
@@ -146,9 +156,7 @@ async function addEntry(entry: MpdDirectoryEntry) {
 }
 
 async function playFolder() {
-  await sendCommand('clear')
-  await sendCommand('add', { uri: folderPath.value })
-  await sendCommand('play', { pos: 0 })
+  await playUri(folderPath.value)
 }
 
 async function addFolder() {
