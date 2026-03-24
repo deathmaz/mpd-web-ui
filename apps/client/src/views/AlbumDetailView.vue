@@ -6,13 +6,16 @@ import { formatDuration } from '@/utils/format'
 import type { MpdSong } from '@mpd-web/shared'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 
 const route = useRoute()
 const router = useRouter()
-const albumName = route.query.album as string
-const artistName = route.query.artist as string
+const albumName = route.params.album as string
+const artistName = route.params.artist as string
 const songs = ref<MpdSong[]>([])
 const loading = ref(true)
+const scrollRef = ref<HTMLElement | null>(null)
+useScrollRestore(scrollRef)
 
 const artUrl = computed(() => {
   if (songs.value.length === 0) return ''
@@ -81,7 +84,7 @@ async function replaceAll() {
 
     <div v-if="loading" class="flex items-center justify-center py-8 text-text-muted text-sm">Loading...</div>
 
-    <div v-else class="flex-1 overflow-y-auto">
+    <div v-else ref="scrollRef" class="flex-1 overflow-y-auto">
       <div
         v-for="song in songs"
         :key="song.file"

@@ -5,6 +5,7 @@ import { useQueueStore } from '@/stores/queue'
 import { sendCommand } from '@/composables/useWebSocket'
 import { useVirtualList, findStartIndex } from '@/composables/useVirtualList'
 import { formatDuration, formatTotalDuration } from '@/utils/format'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 import FilterInput from '@/components/common/FilterInput.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
 import AlbumLink from '@/components/common/AlbumLink.vue'
@@ -99,6 +100,7 @@ const { containerRef, scrollTop, prefixSums, totalHeight, visibleItems, scrollTo
   items: flatItems,
   itemHeight: (item) => item.type === 'header' ? HEADER_HEIGHT : SONG_HEIGHT,
 })
+useScrollRestore(containerRef)
 
 // Sticky header: binary search for scroll position, then walk back to find nearest header
 const stickyHeader = computed(() => {

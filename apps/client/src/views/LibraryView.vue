@@ -7,7 +7,7 @@ const artists = ref<string[]>([])
 const albums = ref<{ album: string; artist: string; coverFile: string | null }[]>([])
 const folderEntries = ref<MpdDirectoryEntry[]>([])
 const folderPath = ref('')
-const folderHistory = ref<string[]>([])
+const FOLDER_CACHE_MAX = 100
 const folderCache = new Map<string, MpdDirectoryEntry[]>()
 </script>
 
@@ -21,6 +21,7 @@ import FilterInput from '@/components/common/FilterInput.vue'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
 import AlbumLink from '@/components/common/AlbumLink.vue'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 
 const ARTIST_HEIGHT = 64
 const ALBUM_HEIGHT = 64
@@ -76,6 +77,9 @@ const filterPlaceholder = computed(() => {
 const artistsVl = useVirtualList({ items: filteredArtists, itemHeight: () => ARTIST_HEIGHT })
 const albumsVl = useVirtualList({ items: filteredAlbums, itemHeight: () => ALBUM_HEIGHT })
 const foldersVl = useVirtualList({ items: filteredFolderEntries, itemHeight: () => FOLDER_HEIGHT })
+useScrollRestore(artistsVl.containerRef, '/library/artists')
+useScrollRestore(albumsVl.containerRef, '/library/albums')
+useScrollRestore(foldersVl.containerRef)
 
 async function fetchArtists() {
   loading.value = true
@@ -115,6 +119,10 @@ async function fetchFolder(path: string) {
     if (!res.ok) return
     const data = await res.json()
     folderCache.set(path, data.entries)
+    if (folderCache.size > FOLDER_CACHE_MAX) {
+      const first = folderCache.keys().next().value!
+      folderCache.delete(first)
+    }
     folderEntries.value = data.entries
     folderPath.value = path
   } finally {
@@ -130,7 +138,13 @@ function loadTabData(tab: Tab) {
   filter.value = ''
   if (tab === 'artists' && artists.value.length === 0) fetchArtists()
   if (tab === 'albums' && albums.value.length === 0) fetchAlbums()
-  if (tab === 'folders' && folderEntries.value.length === 0 && !folderPath.value) fetchFolder('')
+  if (tab === 'folders') fetchFolder(getFolderPathFromRoute())
+}
+
+function getFolderPathFromRoute(): string {
+  const p = route.params.path
+  if (Array.isArray(p)) return p.join('/')
+  return p || ''
 }
 
 function goToArtist(name: string) {
@@ -138,21 +152,15 @@ function goToArtist(name: string) {
 }
 
 function goToAlbum(album: string, artist: string) {
-  router.push({ name: 'album-detail', query: { album, artist } })
+  router.push({ name: 'album-detail', params: { artist, album } })
 }
 
 function enterFolder(path: string) {
-  folderHistory.value.push(folderPath.value)
-  filter.value = ''
-  fetchFolder(path)
+  router.push({ name: 'library-folders', params: { path } })
 }
 
 function goBack() {
-  const prev = folderHistory.value.pop()
-  if (prev !== undefined) {
-    filter.value = ''
-    fetchFolder(prev)
-  }
+  router.back()
 }
 
 async function playUri(uri: string) {
@@ -242,7 +250,7 @@ watch(filter, () => {
   else foldersVl.resetScroll()
 })
 
-watch(activeTab, (tab) => loadTabData(tab), { immediate: true })
+watch(() => [route.name, route.params.path], () => loadTabData(activeTab.value), { immediate: true })
 </script>
 
 <template>

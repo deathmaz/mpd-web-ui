@@ -18,7 +18,7 @@ export const router = createRouter({
       redirect: '/library/folders',
     },
     {
-      path: '/library/folders',
+      path: '/library/folders/:path(.*)*',
       name: 'library-folders',
       component: () => import('@/views/LibraryView.vue'),
     },
@@ -28,17 +28,17 @@ export const router = createRouter({
       component: () => import('@/views/LibraryView.vue'),
     },
     {
+      path: '/library/artists/:name(.*)',
+      name: 'artist-detail',
+      component: () => import('@/views/ArtistDetailView.vue'),
+    },
+    {
       path: '/library/albums',
       name: 'library-albums',
       component: () => import('@/views/LibraryView.vue'),
     },
     {
-      path: '/library/artist/:name',
-      name: 'artist-detail',
-      component: () => import('@/views/ArtistDetailView.vue'),
-    },
-    {
-      path: '/library/album',
+      path: '/library/albums/:artist(.*)/:album(.*)',
       name: 'album-detail',
       component: () => import('@/views/AlbumDetailView.vue'),
     },

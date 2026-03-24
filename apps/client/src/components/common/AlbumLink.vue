@@ -5,7 +5,7 @@ const props = defineProps<{ album: string; artist: string }>()
 const router = useRouter()
 
 function goToAlbum() {
-  router.push({ name: 'album-detail', query: { album: props.album, artist: props.artist } })
+  router.push({ name: 'album-detail', params: { artist: props.artist, album: props.album } })
 }
 </script>
 

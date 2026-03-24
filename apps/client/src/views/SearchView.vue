@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { sendCommand } from '@/composables/useWebSocket'
 import { useVirtualList } from '@/composables/useVirtualList'
 import { formatDuration } from '@/utils/format'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 import ArtistLink from '@/components/common/ArtistLink.vue'
 import AlbumLink from '@/components/common/AlbumLink.vue'
 import type { MpdSong } from '@mpd-web/shared'
@@ -19,6 +20,7 @@ const { containerRef, totalHeight, visibleItems } = useVirtualList({
   items: results,
   itemHeight: () => ROW_HEIGHT,
 })
+useScrollRestore(containerRef)
 
 function onInput() {
   if (debounceTimer) clearTimeout(debounceTimer)

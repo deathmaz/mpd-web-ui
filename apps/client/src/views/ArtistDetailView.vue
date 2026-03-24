@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 
 const route = useRoute()
@@ -9,6 +10,8 @@ const router = useRouter()
 const artistName = route.params.name as string
 const albums = ref<{ album: string; artist: string; date?: string; coverFile: string | null }[]>([])
 const loading = ref(true)
+const scrollRef = ref<HTMLElement | null>(null)
+useScrollRestore(scrollRef)
 
 onMounted(async () => {
   try {
@@ -22,7 +25,7 @@ onMounted(async () => {
 })
 
 function goToAlbum(album: string) {
-  router.push({ name: 'album-detail', query: { album, artist: artistName } })
+  router.push({ name: 'album-detail', params: { artist: artistName, album } })
 }
 
 async function playAlbum(album: string) {
@@ -56,7 +59,7 @@ async function addAlbum(album: string) {
 
     <div v-if="loading" class="flex items-center justify-center py-8 text-text-muted text-sm">Loading...</div>
 
-    <div v-else class="flex-1 overflow-y-auto">
+    <div v-else ref="scrollRef" class="flex-1 overflow-y-auto">
       <div
         v-for="item in albums"
         :key="item.album"

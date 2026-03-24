@@ -2,11 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 import type { MpdPlaylist } from '@mpd-web/shared'
 
 const router = useRouter()
 const playlists = ref<MpdPlaylist[]>([])
 const loading = ref(true)
+const scrollRef = ref<HTMLElement | null>(null)
+useScrollRestore(scrollRef)
 
 onMounted(async () => {
   try {
@@ -46,7 +49,7 @@ async function loadPlaylist(name: string) {
       No saved playlists
     </div>
 
-    <div v-else class="flex-1 overflow-y-auto">
+    <div v-else ref="scrollRef" class="flex-1 overflow-y-auto">
       <div
         v-for="pl in playlists"
         :key="pl.playlist"

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
 import { useVirtualList } from '@/composables/useVirtualList'
 import { formatDuration } from '@/utils/format'
+import { useScrollRestore } from '@/composables/useScrollRestore'
 import ArtistLink from '@/components/common/ArtistLink.vue'
 import type { MpdSong } from '@mpd-web/shared'
 
@@ -19,6 +20,7 @@ const { containerRef, totalHeight, visibleItems } = useVirtualList({
   items: songs,
   itemHeight: () => ROW_HEIGHT,
 })
+useScrollRestore(containerRef)
 
 onMounted(async () => {
   try {
