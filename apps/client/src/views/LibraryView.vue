@@ -1,6 +1,19 @@
+<script lang="ts">
+import { ref } from 'vue'
+import type { MpdDirectoryEntry } from '@mpd-web/shared'
+
+// Module-level state — persists across component remounts
+const artists = ref<string[]>([])
+const albums = ref<{ album: string; artist: string; coverFile: string | null }[]>([])
+const folderEntries = ref<MpdDirectoryEntry[]>([])
+const folderPath = ref('')
+const folderHistory = ref<string[]>([])
+const folderCache = new Map<string, MpdDirectoryEntry[]>()
+</script>
+
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { sendCommand } from '@/composables/useWebSocket'
 import { useVirtualList } from '@/composables/useVirtualList'
 import { formatDuration } from '@/utils/format'
@@ -8,7 +21,6 @@ import FilterInput from '@/components/common/FilterInput.vue'
 import AlbumArt from '@/components/common/AlbumArt.vue'
 import ArtistLink from '@/components/common/ArtistLink.vue'
 import AlbumLink from '@/components/common/AlbumLink.vue'
-import type { MpdDirectoryEntry } from '@mpd-web/shared'
 
 const ARTIST_HEIGHT = 64
 const ALBUM_HEIGHT = 64
@@ -17,18 +29,22 @@ const FOLDER_HEIGHT = 52
 type Tab = 'artists' | 'albums' | 'folders'
 const tabLabels: Record<Tab, string> = { artists: 'Artists', albums: 'Albums', folders: 'Folders' }
 
+const route = useRoute()
 const router = useRouter()
-const activeTab = ref<Tab>('folders')
-const artists = ref<string[]>([])
-const albums = ref<{ album: string; artist: string; coverFile: string | null }[]>([])
+
+const routeToTab: Record<string, Tab> = {
+  'library-folders': 'folders',
+  'library-artists': 'artists',
+  'library-albums': 'albums',
+}
+const tabToRoute: Record<Tab, string> = {
+  folders: 'library-folders',
+  artists: 'library-artists',
+  albums: 'library-albums',
+}
+const activeTab = computed(() => routeToTab[route.name as string] || 'folders')
 const loading = ref(false)
 const filter = ref('')
-
-// Folders state
-const folderEntries = ref<MpdDirectoryEntry[]>([])
-const folderPath = ref('')
-const folderHistory = ref<string[]>([])
-const folderCache = new Map<string, MpdDirectoryEntry[]>()
 
 const filteredArtists = computed(() => {
   const q = filter.value.toLowerCase().trim()
@@ -107,7 +123,10 @@ async function fetchFolder(path: string) {
 }
 
 function selectTab(tab: Tab) {
-  activeTab.value = tab
+  router.push({ name: tabToRoute[tab] })
+}
+
+function loadTabData(tab: Tab) {
   filter.value = ''
   if (tab === 'artists' && artists.value.length === 0) fetchArtists()
   if (tab === 'albums' && albums.value.length === 0) fetchAlbums()
@@ -223,7 +242,7 @@ watch(filter, () => {
   else foldersVl.resetScroll()
 })
 
-onMounted(() => fetchFolder(''))
+watch(activeTab, (tab) => loadTabData(tab), { immediate: true })
 </script>
 
 <template>

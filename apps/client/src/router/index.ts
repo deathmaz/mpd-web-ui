@@ -15,7 +15,21 @@ export const router = createRouter({
     },
     {
       path: '/library',
-      name: 'library',
+      redirect: '/library/folders',
+    },
+    {
+      path: '/library/folders',
+      name: 'library-folders',
+      component: () => import('@/views/LibraryView.vue'),
+    },
+    {
+      path: '/library/artists',
+      name: 'library-artists',
+      component: () => import('@/views/LibraryView.vue'),
+    },
+    {
+      path: '/library/albums',
+      name: 'library-albums',
       component: () => import('@/views/LibraryView.vue'),
     },
     {
