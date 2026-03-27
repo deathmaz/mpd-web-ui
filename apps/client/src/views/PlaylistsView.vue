@@ -35,6 +35,11 @@ async function playPlaylist(name: string) {
 async function loadPlaylist(name: string) {
   await sendCommand('loadPlaylist', { name })
 }
+
+async function deletePlaylist(name: string) {
+  await sendCommand('deletePlaylist', { name })
+  playlists.value = playlists.value.filter((p) => p.playlist !== name)
+}
 </script>
 
 <template>
@@ -72,6 +77,10 @@ async function loadPlaylist(name: string) {
           class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
           @click.stop="loadPlaylist(pl.playlist)"
         >Load</button>
+        <button
+          class="px-2 py-1 text-xs bg-surface-hover rounded text-text-muted hover:text-text md:opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          @click.stop="deletePlaylist(pl.playlist)"
+        >Delete</button>
       </div>
     </div>
   </div>
