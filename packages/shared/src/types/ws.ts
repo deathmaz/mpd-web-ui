@@ -51,6 +51,13 @@ export interface CommandResponse {
   data?: unknown
 }
 
+// Application-level keepalive. Browsers never surface WS ping/pong control
+// frames to JavaScript, so the server also sends this JSON message every 30s
+// to keep the client-side heartbeat alive while MPD is idle.
+export interface ServerPing {
+  type: 'ping'
+}
+
 export type ServerMessage =
   | StateUpdate
   | PlayerUpdate
@@ -60,6 +67,7 @@ export type ServerMessage =
   | OutputsUpdate
   | ServerError
   | CommandResponse
+  | ServerPing
 
 // Client -> Server messages
 export interface ClientCommand {

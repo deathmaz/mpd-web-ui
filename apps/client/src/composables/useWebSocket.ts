@@ -74,13 +74,17 @@ function handleMessage(event: MessageEvent): void {
     case 'error':
       console.error('Server error:', msg.message)
       break
+    case 'ping':
+      // Server keepalive; ws.onmessage already reset the heartbeat
+      break
   }
 }
 
 function resetHeartbeat(): void {
   clearHeartbeat()
   heartbeatTimer = setTimeout(() => {
-    // No message received for 45s — connection is dead, force reconnect
+    // No message for 45s. The server sends a JSON ping every 30s, so silence
+    // means the socket is dead: force reconnect
     console.warn('WebSocket heartbeat timeout, reconnecting')
     reconnect()
   }, HEARTBEAT_TIMEOUT)

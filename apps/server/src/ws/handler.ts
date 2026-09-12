@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws'
-import type { ClientCommand, StateUpdate, CommandResponse } from '@mpd-web/shared'
+import type { ClientCommand, StateUpdate, CommandResponse, ServerPing } from '@mpd-web/shared'
 import { getMpdClient } from '../services/mpd.js'
 import { addClient, broadcast } from './broadcaster.js'
 import { createDebouncedBroadcaster } from './debounce.js'
@@ -156,7 +156,12 @@ export function setupWebSocketHandler(ws: WebSocket): void {
     }
   })
 
-  // Heartbeat: ping every 30s, close if no pong within 10s
+  // Heartbeat, two halves:
+  // - WS ping control frame: detects a dead socket server-side (terminate if
+  //   no pong before the next tick).
+  // - JSON { type: 'ping' }: browsers never expose ping/pong frames to
+  //   JavaScript, so this is what resets the client's 45s heartbeat while
+  //   MPD is idle and no other messages flow.
   let alive = true
   ws.on('pong', () => { alive = true })
 
@@ -168,6 +173,9 @@ export function setupWebSocketHandler(ws: WebSocket): void {
     }
     alive = false
     ws.ping()
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' } satisfies ServerPing))
+    }
   }, PING_INTERVAL)
 
   ws.on('close', () => clearInterval(pingInterval))
