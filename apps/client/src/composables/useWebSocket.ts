@@ -19,6 +19,8 @@ let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectDelay = 1000
 let heartbeatTimer: ReturnType<typeof setTimeout> | null = null
+let lastMessageAt = 0
+let wakeListenersInstalled = false
 const pendingCommands = new Map<
   string,
   { resolve: (data: unknown) => void; reject: (err: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -118,6 +120,7 @@ function connect(): void {
 
   ws.onopen = () => {
     connected.value = true
+    lastMessageAt = Date.now()
     reconnectDelay = 1000
     if (reconnectTimer) {
       clearTimeout(reconnectTimer)
@@ -127,6 +130,7 @@ function connect(): void {
   }
 
   ws.onmessage = (event: MessageEvent) => {
+    lastMessageAt = Date.now()
     resetHeartbeat()
     handleMessage(event)
   }
@@ -183,6 +187,39 @@ export function sendCommand<K extends CommandName>(
   })
 }
 
+/**
+ * Decide whether coming back to the foreground (or regaining network) should
+ * force a reconnect. Background tabs get their timers throttled to about
+ * once a minute, so the heartbeat cannot be trusted to have noticed a socket
+ * that died while the tab was hidden; anything not open, or open but silent
+ * for longer than the heartbeat window, is reconnected right away instead
+ * of waiting out the backoff timer.
+ */
+export function shouldReconnectOnWake(state: {
+  open: boolean
+  lastMessageAt: number
+  now: number
+}): boolean {
+  if (!state.open) return true
+  return state.now - state.lastMessageAt > HEARTBEAT_TIMEOUT
+}
+
+function onWake(): void {
+  if (document.visibilityState !== 'visible') return
+  const open = ws !== null && ws.readyState === WebSocket.OPEN
+  if (shouldReconnectOnWake({ open, lastMessageAt, now: Date.now() })) {
+    console.info('WebSocket: tab woke up with a stale or closed socket, reconnecting')
+    reconnect()
+  }
+}
+
+function installWakeListeners(): void {
+  if (wakeListenersInstalled) return
+  wakeListenersInstalled = true
+  document.addEventListener('visibilitychange', onWake)
+  window.addEventListener('online', onWake)
+}
+
 export function reconnect(): void {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer)
@@ -200,6 +237,7 @@ export function reconnect(): void {
 }
 
 export function useWebSocket() {
+  installWakeListeners()
   connect()
   return { connected, sendCommand, reconnect }
 }
