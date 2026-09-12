@@ -72,6 +72,8 @@ function mapToOutput(m: Map<string, string>): MpdOutput {
   }
 }
 
+const BINARY_LIMIT = 1024 * 1024
+
 export interface MpdClientOptions {
   host: string
   port: number
@@ -125,6 +127,11 @@ export class MpdClient extends EventEmitter {
       this.cmdConn.connect(host, port, password),
       this.idleConn.connect(host, port, password),
     ])
+
+    // MPD caps each albumart/readpicture response at 8 KiB by default, which
+    // turns one cover into dozens of serialized round trips. Raise it to 1 MiB
+    // (MPD >= 0.22.4); older servers ACK the unknown command, which is fine.
+    await this.cmdConn.sendCommand(`binarylimit ${BINARY_LIMIT}`).catch(() => {})
 
     this._connected = true
     this.reconnectDelay = 1000

@@ -54,6 +54,20 @@ describe('MpdClient', () => {
       expect(connectHandler).toHaveBeenCalledOnce()
     })
 
+    it('raises binarylimit on the command connection and tolerates an ACK', async () => {
+      const { client, cmdConn, idleConn } = createTestClient()
+      idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+
+      await client.connect()
+      expect(cmdConn.sendCommand).toHaveBeenCalledWith('binarylimit 1048576')
+
+      const old = createTestClient()
+      old.idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+      old.cmdConn.sendCommand.mockRejectedValueOnce(new Error('ACK [5@0] {} unknown command "binarylimit"'))
+      await expect(old.client.connect()).resolves.toBeUndefined()
+      expect(old.client.connected).toBe(true)
+    })
+
     it('starts idle loop after connecting', async () => {
       const { client, idleConn } = createTestClient()
       idleConn.sendCommand.mockReturnValue(new Promise(() => {}))

@@ -33,6 +33,8 @@ export class MpdConnection extends EventEmitter {
   private buffer = ''
   private rawBuffer: Buffer = Buffer.alloc(0)
   private binaryBuffer: Buffer | null = null
+  /** Incoming binary chunks; joined once when the payload is complete */
+  private binaryChunks: Buffer[] = []
   private binaryRemaining = 0
   private binaryHeaders: Map<string, string> = new Map()
   private pendingCommand: PendingCommand | null = null
@@ -62,6 +64,7 @@ export class MpdConnection extends EventEmitter {
       this.buffer = ''
       this.rawBuffer = Buffer.alloc(0)
       this.binaryBuffer = null
+      this.binaryChunks = []
       this.binaryRemaining = 0
 
       this.socket.setNoDelay(true)
@@ -263,9 +266,10 @@ export class MpdConnection extends EventEmitter {
       const available = chunk.length
 
       if (available >= needed) {
-        this.binaryBuffer = this.binaryBuffer
-          ? Buffer.concat([this.binaryBuffer, chunk.subarray(0, needed)])
-          : Buffer.from(chunk.subarray(0, needed))
+        this.binaryChunks.push(chunk.subarray(0, needed))
+        // One copy for the whole payload instead of one per chunk
+        this.binaryBuffer = Buffer.concat(this.binaryChunks)
+        this.binaryChunks = []
         this.binaryRemaining = 0
 
         // After binary data, remaining is text (\nOK\n)
@@ -277,9 +281,7 @@ export class MpdConnection extends EventEmitter {
           this.processRawBuffer()
         }
       } else {
-        this.binaryBuffer = this.binaryBuffer
-          ? Buffer.concat([this.binaryBuffer, chunk])
-          : Buffer.from(chunk)
+        this.binaryChunks.push(chunk)
         this.binaryRemaining -= available
       }
       return
@@ -316,6 +318,7 @@ export class MpdConnection extends EventEmitter {
         const sizeStr = lineBytes.subarray(8).toString('utf-8')
         this.binaryRemaining = parseInt(sizeStr)
         this.binaryBuffer = null
+        this.binaryChunks = []
         // Remaining raw data is binary content - feed it back through onData
         this.rawBuffer = Buffer.alloc(0)
         if (rest.length > 0) {
