@@ -1,10 +1,11 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify'
-import { MpdError } from '@mpd-web/mpd-client'
+import { MpdError, MpdConnectionError } from '@mpd-web/mpd-client'
 
 /**
  * Map failures from the MPD layer onto meaningful HTTP statuses instead of a
  * blanket 500: MPD rejected the command (ACK) is a bad request, MPD being
- * unreachable is 503. Fastify's own errors keep their status (404, 400 ...).
+ * unreachable (or dropped mid-request) is 503, a rejected argument (quote(),
+ * search type) carries its own 400. Fastify's own errors keep their status.
  */
 export function errorHandler(
   err: FastifyError | Error,
@@ -20,7 +21,7 @@ export function errorHandler(
     return
   }
 
-  if (err.message === 'Not connected') {
+  if (err instanceof MpdConnectionError) {
     reply.status(503).send({ error: 'MPD not connected' })
     return
   }

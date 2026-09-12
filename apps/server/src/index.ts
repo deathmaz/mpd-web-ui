@@ -30,10 +30,11 @@ async function main() {
   // Plugins
   await fastify.register(fastifyCompress)
   await fastify.register(fastifyCors, { origin: true })
-  // ws defaults to a 100 MiB max frame; the biggest legitimate client
-  // message is an addMultiple with a few thousand URIs, well under 1 MiB.
+  // ws defaults to a 100 MiB max frame. The biggest legitimate client frame
+  // is addMultiple for a whole artist; the handler caps lists at
+  // MAX_LIST_ITEMS (~20k paths of ~150 bytes ≈ 3 MiB), so 8 MiB has headroom.
   await fastify.register(fastifyWebsocket, {
-    options: { maxPayload: 1024 * 1024 },
+    options: { maxPayload: 8 * 1024 * 1024 },
   })
 
   // WebSocket endpoint (Origin-checked, see ws/origin.ts)

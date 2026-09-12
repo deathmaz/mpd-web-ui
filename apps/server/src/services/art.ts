@@ -24,6 +24,10 @@ export const missingArt = new LRUCache<string, true>({
 // instead of each queueing their own MPD commands.
 const inFlight = new Map<string, Promise<Art | null>>()
 
+// Bumped by clearArtCaches(); a fetch started before a clear must not write
+// its (possibly stale) result into the freshly cleared caches.
+let generation = 0
+
 /**
  * Album art for a song URI: positive cache, negative cache, then MPD.
  * Resolves null when MPD has no art for the file.
@@ -36,18 +40,21 @@ export function getArt(uri: string): Promise<Art | null> {
   const pending = inFlight.get(uri)
   if (pending) return pending
 
-  const fetching = getMpdClient()
+  const startedIn = generation
+  const fetching: Promise<Art | null> = getMpdClient()
     .getFullAlbumArt(uri)
     .then((art) => {
-      if (art) {
-        artCache.set(uri, art)
-      } else {
-        missingArt.set(uri, true)
+      if (startedIn === generation) {
+        if (art) {
+          artCache.set(uri, art)
+        } else {
+          missingArt.set(uri, true)
+        }
       }
       return art
     })
     .finally(() => {
-      inFlight.delete(uri)
+      if (inFlight.get(uri) === fetching) inFlight.delete(uri)
     })
   inFlight.set(uri, fetching)
   return fetching
@@ -55,6 +62,8 @@ export function getArt(uri: string): Promise<Art | null> {
 
 /** Drop all cached art, e.g. after the MPD database changed. */
 export function clearArtCaches(): void {
+  generation++
   artCache.clear()
   missingArt.clear()
+  inFlight.clear()
 }

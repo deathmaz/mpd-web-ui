@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   quote,
+  MpdArgumentError,
   MpdError,
   parseAck,
   parseKeyValue,
@@ -26,8 +27,14 @@ describe('quote', () => {
     expect(() => quote('x\r')).toThrow('line breaks')
   })
 
-  it('rejects non-strings', () => {
-    expect(() => quote(123 as unknown as string)).toThrow(TypeError)
+  it('rejects non-strings and line breaks as 400-class argument errors', () => {
+    expect(() => quote(123 as unknown as string)).toThrow(MpdArgumentError)
+    try {
+      quote('a\nb')
+    } catch (err) {
+      expect(err).toBeInstanceOf(MpdArgumentError)
+      expect((err as MpdArgumentError).statusCode).toBe(400)
+    }
   })
 })
 

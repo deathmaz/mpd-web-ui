@@ -29,6 +29,26 @@ export class MpdError extends Error {
   }
 }
 
+/** The MPD connection is not usable (never connected, dropped, or timed out). */
+export class MpdConnectionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'MpdConnectionError'
+  }
+}
+
+/**
+ * A caller-supplied argument cannot be sent to MPD. Carries statusCode 400 so
+ * HTTP error handlers treat it as the client's fault rather than a 500.
+ */
+export class MpdArgumentError extends Error {
+  readonly statusCode = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'MpdArgumentError'
+  }
+}
+
 /**
  * Quote a string argument for the MPD wire protocol: wrap in double quotes,
  * backslash-escape `\\` and `"`. Line breaks terminate MPD commands and can
@@ -39,10 +59,10 @@ export class MpdError extends Error {
  */
 export function quote(value: string): string {
   if (typeof value !== 'string') {
-    throw new TypeError(`MPD argument must be a string, got ${typeof value}`)
+    throw new MpdArgumentError(`MPD argument must be a string, got ${typeof value}`)
   }
   if (/[\r\n]/.test(value)) {
-    throw new Error('MPD argument must not contain line breaks')
+    throw new MpdArgumentError('MPD argument must not contain line breaks')
   }
   return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
 }

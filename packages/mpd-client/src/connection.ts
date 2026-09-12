@@ -1,6 +1,6 @@
 import { Socket } from 'net'
 import { EventEmitter } from 'events'
-import { parseAck, quote } from './protocol.js'
+import { parseAck, quote, MpdConnectionError } from './protocol.js'
 
 interface PendingCommand {
   resolve: (data: string) => void
@@ -128,23 +128,29 @@ export class MpdConnection extends EventEmitter {
       this.socket.on('close', () => {
         this._connected = false
         this.clearCommandTimer()
+        if (!greeted) {
+          // Peer accepted TCP and hung up without a greeting (MPD at
+          // max_connections, a proxy...). Nothing else will settle connect().
+          clearTimeout(connectTimer)
+          reject(new MpdConnectionError('Connection closed before greeting'))
+        }
         this.emit('close')
         if (this.pendingCommand) {
-          this.pendingCommand.reject(new Error('Connection closed'))
+          this.pendingCommand.reject(new MpdConnectionError('Connection closed'))
           this.pendingCommand = null
         }
         if (this.pendingBinary) {
-          this.pendingBinary.reject(new Error('Connection closed'))
+          this.pendingBinary.reject(new MpdConnectionError('Connection closed'))
           this.pendingBinary = null
         }
         if (this.pendingCommandList) {
-          this.pendingCommandList.reject(new Error('Connection closed'))
+          this.pendingCommandList.reject(new MpdConnectionError('Connection closed'))
           this.pendingCommandList = null
           this.commandListBuffers = []
           this.commandListCurrent = ''
         }
         for (const cmd of this.commandQueue) {
-          cmd.reject(new Error('Connection closed'))
+          cmd.reject(new MpdConnectionError('Connection closed'))
         }
         this.commandQueue = []
         this.processing = false
@@ -182,7 +188,7 @@ export class MpdConnection extends EventEmitter {
   sendCommand(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
       if (!this._connected) {
-        reject(new Error('Not connected'))
+        reject(new MpdConnectionError('Not connected'))
         return
       }
       this.commandQueue.push({ command, binary: false, commandList: false, resolve, reject })
@@ -195,7 +201,7 @@ export class MpdConnection extends EventEmitter {
   ): Promise<{ headers: Map<string, string>; data: Buffer }> {
     return new Promise((resolve, reject) => {
       if (!this._connected) {
-        reject(new Error('Not connected'))
+        reject(new MpdConnectionError('Not connected'))
         return
       }
       this.commandQueue.push({ command, binary: true, commandList: false, resolve, reject })
@@ -206,7 +212,7 @@ export class MpdConnection extends EventEmitter {
   sendCommandList(commands: string[]): Promise<string[]> {
     return new Promise((resolve, reject) => {
       if (!this._connected) {
-        reject(new Error('Not connected'))
+        reject(new MpdConnectionError('Not connected'))
         return
       }
       const command = ['command_list_ok_begin', ...commands, 'command_list_end'].join('\n')
@@ -227,7 +233,7 @@ export class MpdConnection extends EventEmitter {
     if (!this.socket) {
       // Socket gone — reject all queued commands
       for (const cmd of this.commandQueue) {
-        cmd.reject(new Error('Not connected'))
+        cmd.reject(new MpdConnectionError('Not connected'))
       }
       this.commandQueue = []
       return

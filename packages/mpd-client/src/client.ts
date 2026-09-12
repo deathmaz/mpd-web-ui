@@ -7,6 +7,8 @@ import {
   parseValueList,
   quote,
   MpdError,
+  MpdArgumentError,
+  MpdConnectionError,
 } from './protocol.js'
 import type {
   MpdStatus,
@@ -132,6 +134,15 @@ export class MpdClient extends EventEmitter {
     // turns one cover into dozens of serialized round trips. Raise it to 1 MiB
     // (MPD >= 0.22.4); older servers ACK the unknown command, which is fine.
     await this.cmdConn.sendCommand(`binarylimit ${BINARY_LIMIT}`).catch(() => {})
+
+    // A connection may have died during the handshake (its 'close' fired
+    // while _connected was still false, so handleDisconnect ignored it).
+    // Never report a half-connected client.
+    if (!this.cmdConn.connected || !this.idleConn.connected) {
+      this.cmdConn.disconnect()
+      this.idleConn.disconnect()
+      throw new MpdConnectionError('Connection lost during handshake')
+    }
 
     this._connected = true
     this.reconnectDelay = 1000
@@ -468,7 +479,7 @@ export class MpdClient extends EventEmitter {
     // `type` is a bare (unquoted) tag name on the wire, so it cannot be
     // escaped; only accept identifiers.
     if (!/^[A-Za-z_]+$/.test(type)) {
-      throw new Error(`Invalid search type: ${type}`)
+      throw new MpdArgumentError(`Invalid search type: ${type}`)
     }
     const response = await this.cmdConn.sendCommand(
       `search ${type} ${quote(query)}`,

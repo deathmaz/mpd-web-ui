@@ -78,14 +78,24 @@ function nonEmptyStr(v: unknown, name: string): string {
   return value
 }
 
+// Upper bound for list arguments; keeps one frame well inside the WS
+// maxPayload and one MPD command list inside its default 2 MiB limit.
+export const MAX_LIST_ITEMS = 20_000
+
+function list(v: unknown, name: string, expected: string): unknown[] {
+  if (!Array.isArray(v)) throw new InvalidArgument(name, expected)
+  if (v.length > MAX_LIST_ITEMS) {
+    throw new InvalidArgument(name, `at most ${MAX_LIST_ITEMS} items`)
+  }
+  return v
+}
+
 function strArray(v: unknown, name: string): string[] {
-  if (!Array.isArray(v)) throw new InvalidArgument(name, 'array of strings')
-  return v.map((item, i) => str(item, `${name}[${i}]`))
+  return list(v, name, 'array of strings').map((item, i) => str(item, `${name}[${i}]`))
 }
 
 function intArray(v: unknown, name: string): number[] {
-  if (!Array.isArray(v)) throw new InvalidArgument(name, 'array of integers')
-  return v.map((item, i) => int(item, `${name}[${i}]`))
+  return list(v, name, 'array of integers').map((item, i) => int(item, `${name}[${i}]`))
 }
 
 type Args = Record<string, unknown>

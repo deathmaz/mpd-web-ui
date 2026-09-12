@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import Fastify from 'fastify'
-import { MpdError } from '@mpd-web/mpd-client'
+import { MpdError, MpdConnectionError, MpdArgumentError } from '@mpd-web/mpd-client'
 import { errorHandler } from '../error-handler.js'
 
 async function build() {
@@ -10,7 +10,13 @@ async function build() {
     throw new MpdError('No such song', 50, 0, 'playid')
   })
   app.get('/down', async () => {
-    throw new Error('Not connected')
+    throw new MpdConnectionError('Not connected')
+  })
+  app.get('/dropped', async () => {
+    throw new MpdConnectionError('Connection closed')
+  })
+  app.get('/badarg', async () => {
+    throw new MpdArgumentError('MPD argument must not contain line breaks')
   })
   app.get('/boom', async () => {
     throw new Error('something internal')
@@ -28,11 +34,21 @@ describe('errorHandler', () => {
     await app.close()
   })
 
-  it('maps a missing MPD connection to 503', async () => {
+  it('maps a missing or dropped MPD connection to 503', async () => {
     const app = await build()
-    const res = await app.inject({ url: '/down' })
-    expect(res.statusCode).toBe(503)
-    expect(res.json()).toEqual({ error: 'MPD not connected' })
+    for (const url of ['/down', '/dropped']) {
+      const res = await app.inject({ url })
+      expect(res.statusCode).toBe(503)
+      expect(res.json()).toEqual({ error: 'MPD not connected' })
+    }
+    await app.close()
+  })
+
+  it('maps rejected arguments (quote, search type) to 400 with the message', async () => {
+    const app = await build()
+    const res = await app.inject({ url: '/badarg' })
+    expect(res.statusCode).toBe(400)
+    expect(res.json()).toEqual({ error: 'MPD argument must not contain line breaks' })
     await app.close()
   })
 

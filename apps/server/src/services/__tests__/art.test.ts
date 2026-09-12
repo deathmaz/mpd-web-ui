@@ -53,6 +53,21 @@ describe('getArt', () => {
     expect(mpd.getFullAlbumArt).toHaveBeenCalledTimes(2)
   })
 
+  it('does not let a fetch started before clearArtCaches() repopulate the caches', async () => {
+    let resolve!: (art: null) => void
+    mpd.getFullAlbumArt.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+
+    const stale = getArt('new-cover.mp3')
+    clearArtCaches() // e.g. MPD `database` event: cover.jpg was just added
+    resolve(null) // old fetch answers for the pre-update library
+    expect(await stale).toBeNull()
+
+    expect(missingArt.has('new-cover.mp3')).toBe(false)
+    mpd.getFullAlbumArt.mockResolvedValue(ART)
+    expect(await getArt('new-cover.mp3')).toBe(ART)
+    expect(mpd.getFullAlbumArt).toHaveBeenCalledTimes(2)
+  })
+
   it('propagates MPD errors and caches nothing', async () => {
     mpd.getFullAlbumArt.mockRejectedValue(new Error('Not connected'))
 

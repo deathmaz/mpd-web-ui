@@ -206,6 +206,9 @@ export function shouldReconnectOnWake(state: {
 
 function onWake(): void {
   if (document.visibilityState !== 'visible') return
+  // visibilitychange and online often fire together on resume; the first
+  // one already started a handshake, do not tear it down for the second.
+  if (ws !== null && ws.readyState === WebSocket.CONNECTING) return
   const open = ws !== null && ws.readyState === WebSocket.OPEN
   if (shouldReconnectOnWake({ open, lastMessageAt, now: Date.now() })) {
     console.info('WebSocket: tab woke up with a stale or closed socket, reconnecting')

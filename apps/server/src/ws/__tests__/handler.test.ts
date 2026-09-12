@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
-import { setupWebSocketHandler, setupMpdEventBroadcasting } from '../handler.js'
+import { setupWebSocketHandler, setupMpdEventBroadcasting, MAX_LIST_ITEMS } from '../handler.js'
 
 // One shared fake MpdClient: an EventEmitter (for connect/disconnect/idle
 // events) with a mutable `connected` flag and resolved command stubs.
@@ -13,6 +13,7 @@ const mpd = await vi.hoisted(async () => {
     playlistInfo: ReturnType<typeof vi.fn>
     outputs: ReturnType<typeof vi.fn>
     addId: ReturnType<typeof vi.fn>
+    addMultiple: ReturnType<typeof vi.fn>
     playId: ReturnType<typeof vi.fn>
     play: ReturnType<typeof vi.fn>
     setSingle: ReturnType<typeof vi.fn>
@@ -24,6 +25,7 @@ const mpd = await vi.hoisted(async () => {
   emitter.playlistInfo = vi.fn()
   emitter.outputs = vi.fn()
   emitter.addId = vi.fn()
+  emitter.addMultiple = vi.fn()
   emitter.playId = vi.fn()
   emitter.play = vi.fn()
   emitter.setSingle = vi.fn()
@@ -42,6 +44,7 @@ beforeEach(() => {
   mpd.playlistInfo.mockResolvedValue([])
   mpd.outputs.mockResolvedValue([])
   mpd.addId.mockResolvedValue(42)
+  mpd.addMultiple.mockResolvedValue(undefined)
   mpd.playId.mockResolvedValue(undefined)
   mpd.play.mockResolvedValue(undefined)
   mpd.setSingle.mockResolvedValue(undefined)
@@ -153,6 +156,18 @@ describe('setupWebSocketHandler commands', () => {
     send(ws, { id: '5', command: 'loadPlaylist', args: { name: '' } })
     expect(await response(ws)).toMatchObject({ id: '5', ok: false, error: expect.stringContaining('non-empty') })
     expect(mpd.loadPlaylist).not.toHaveBeenCalled()
+    ws.emit('close')
+  })
+
+  it('caps list arguments instead of forwarding unbounded command lists', async () => {
+    const ws = await openClient()
+    send(ws, { id: '10', command: 'addMultiple', args: { uris: Array(MAX_LIST_ITEMS).fill('a.mp3') } })
+    expect(await response(ws)).toMatchObject({ id: '10', ok: true })
+    ws.send.mockClear()
+
+    send(ws, { id: '11', command: 'addMultiple', args: { uris: Array(MAX_LIST_ITEMS + 1).fill('a.mp3') } })
+    expect(await response(ws)).toMatchObject({ id: '11', ok: false, error: expect.stringContaining('at most') })
+    expect(mpd.addMultiple).toHaveBeenCalledTimes(1)
     ws.emit('close')
   })
 

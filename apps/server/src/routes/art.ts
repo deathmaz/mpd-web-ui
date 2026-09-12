@@ -15,24 +15,18 @@ export async function artRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'URI required' })
       }
 
-      try {
-        const art = await getArt(uri)
-        if (!art) {
-          return reply
-            .status(404)
-            .header('Cache-Control', MISSING_CACHE_CONTROL)
-            .send({ error: 'No album art found' })
-        }
+      // Errors propagate to the global errorHandler (503 when MPD is down)
+      const art = await getArt(uri)
+      if (!art) {
         return reply
-          .header('Content-Type', art.type)
-          .header('Cache-Control', FOUND_CACHE_CONTROL)
-          .send(art.data)
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        return reply
-          .status(500)
-          .send({ error: 'Failed to fetch album art', detail: message })
+          .status(404)
+          .header('Cache-Control', MISSING_CACHE_CONTROL)
+          .send({ error: 'No album art found' })
       }
+      return reply
+        .header('Content-Type', art.type)
+        .header('Cache-Control', FOUND_CACHE_CONTROL)
+        .send(art.data)
     },
   )
 }

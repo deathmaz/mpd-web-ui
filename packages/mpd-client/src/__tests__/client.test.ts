@@ -68,6 +68,24 @@ describe('MpdClient', () => {
       expect(old.client.connected).toBe(true)
     })
 
+    it('fails connect() when a connection dies during the handshake instead of reporting half-connected', async () => {
+      const { client, cmdConn, idleConn } = createTestClient()
+      idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+      // cmdConn greets, then drops while binarylimit is pending
+      cmdConn.sendCommand.mockImplementationOnce(async () => {
+        cmdConn.connected = false
+        cmdConn.emit('close')
+        throw new Error('Connection closed')
+      })
+      const connectHandler = vi.fn()
+      client.on('connect', connectHandler)
+
+      await expect(client.connect()).rejects.toThrow('Connection lost during handshake')
+      expect(client.connected).toBe(false)
+      expect(connectHandler).not.toHaveBeenCalled()
+      expect(idleConn.disconnect).toHaveBeenCalled()
+    })
+
     it('starts idle loop after connecting', async () => {
       const { client, idleConn } = createTestClient()
       idleConn.sendCommand.mockReturnValue(new Promise(() => {}))

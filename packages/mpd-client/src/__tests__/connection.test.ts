@@ -487,6 +487,19 @@ describe('MpdConnection', () => {
       await new Promise<void>((resolve) => server.close(() => resolve()))
     })
 
+    it('rejects when the peer closes before sending a greeting', async () => {
+      const server = net.createServer((socket) => { socket.end() })
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const port = (server.address() as net.AddressInfo).port
+
+      const conn = new MpdConnection()
+      const started = Date.now()
+      await expect(conn.connect('127.0.0.1', port)).rejects.toThrow('Connection closed before greeting')
+      expect(Date.now() - started).toBeLessThan(2000) // not the 5s connect timeout
+      expect(conn.connected).toBe(false)
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    })
+
     it('rejects and closes the socket on a non-MPD greeting', async () => {
       const server = net.createServer((socket) => { socket.write('220 not mpd\n') })
       await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
