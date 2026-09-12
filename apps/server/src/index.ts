@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import { existsSync } from 'fs'
 import { config } from './config.js'
 import { startMpd } from './services/mpd.js'
+import { setupLibraryCacheInvalidation } from './services/library-cache.js'
 import { setupWebSocketHandler, setupMpdEventBroadcasting } from './ws/handler.js'
 import { streamRoutes } from './routes/stream.js'
 import { artRoutes } from './routes/art.js'
@@ -68,6 +69,7 @@ async function main() {
   // EventEmitter which persists across reconnects. startMpd() never throws;
   // the server comes up regardless and the client retries in the background.
   setupMpdEventBroadcasting()
+  setupLibraryCacheInvalidation()
   const mpd = startMpd()
 
   fastify.addHook('onClose', async () => {
