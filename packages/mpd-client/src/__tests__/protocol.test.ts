@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  quote,
   MpdError,
   parseAck,
   parseKeyValue,
@@ -7,6 +8,28 @@ import {
   parseListResponse,
   parseValueList,
 } from '../protocol.js'
+
+describe('quote', () => {
+  it('wraps plain strings in double quotes', () => {
+    expect(quote('song.mp3')).toBe('"song.mp3"')
+    expect(quote('')).toBe('""')
+  })
+
+  it('escapes double quotes and backslashes', () => {
+    expect(quote('a "quoted" name')).toBe('"a \\"quoted\\" name"')
+    expect(quote('back\\slash')).toBe('"back\\\\slash"')
+    expect(quote('\\"')).toBe('"\\\\\\""')
+  })
+
+  it('rejects line breaks (they would terminate the command)', () => {
+    expect(() => quote('x"\nclear')).toThrow('line breaks')
+    expect(() => quote('x\r')).toThrow('line breaks')
+  })
+
+  it('rejects non-strings', () => {
+    expect(() => quote(123 as unknown as string)).toThrow(TypeError)
+  })
+})
 
 describe('MpdError', () => {
   it('stores ack details', () => {

@@ -173,7 +173,7 @@ async function playEntry(entry: MpdDirectoryEntry) {
   if (entry.type === 'directory') {
     await playUri(entry.path)
   } else {
-    const id = await sendCommand('addId', { uri: entry.path }) as number
+    const id = await sendCommand('addId', { uri: entry.path })
     await sendCommand('playId', { id })
   }
 }

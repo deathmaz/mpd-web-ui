@@ -12,12 +12,22 @@ const mpd = await vi.hoisted(async () => {
     currentSong: ReturnType<typeof vi.fn>
     playlistInfo: ReturnType<typeof vi.fn>
     outputs: ReturnType<typeof vi.fn>
+    addId: ReturnType<typeof vi.fn>
+    playId: ReturnType<typeof vi.fn>
+    play: ReturnType<typeof vi.fn>
+    setSingle: ReturnType<typeof vi.fn>
+    loadPlaylist: ReturnType<typeof vi.fn>
   }
   emitter.connected = true
   emitter.status = vi.fn()
   emitter.currentSong = vi.fn()
   emitter.playlistInfo = vi.fn()
   emitter.outputs = vi.fn()
+  emitter.addId = vi.fn()
+  emitter.playId = vi.fn()
+  emitter.play = vi.fn()
+  emitter.setSingle = vi.fn()
+  emitter.loadPlaylist = vi.fn()
   return emitter
 })
 
@@ -31,6 +41,11 @@ beforeEach(() => {
   mpd.currentSong.mockResolvedValue(null)
   mpd.playlistInfo.mockResolvedValue([])
   mpd.outputs.mockResolvedValue([])
+  mpd.addId.mockResolvedValue(42)
+  mpd.playId.mockResolvedValue(undefined)
+  mpd.play.mockResolvedValue(undefined)
+  mpd.setSingle.mockResolvedValue(undefined)
+  mpd.loadPlaylist.mockResolvedValue(undefined)
 })
 
 const PING_INTERVAL = 30_000
@@ -83,6 +98,94 @@ describe('setupWebSocketHandler initial messages', () => {
     expect(sentMessages(ws)).toEqual([{ type: 'mpd', connected: false }])
     expect(mpd.status).not.toHaveBeenCalled()
 
+    ws.emit('close')
+  })
+})
+
+describe('setupWebSocketHandler commands', () => {
+  async function openClient() {
+    const ws = createMockWs()
+    setupWebSocketHandler(ws as any)
+    await vi.waitFor(() => expect(ws.send).toHaveBeenCalledTimes(2))
+    ws.send.mockClear()
+    return ws
+  }
+
+  function send(ws: ReturnType<typeof createMockWs>, payload: unknown) {
+    ws.emit('message', Buffer.from(typeof payload === 'string' ? payload : JSON.stringify(payload)))
+  }
+
+  async function response(ws: ReturnType<typeof createMockWs>) {
+    await vi.waitFor(() => expect(ws.send).toHaveBeenCalledTimes(1))
+    return sentMessages(ws)[0]
+  }
+
+  it('dispatches a command and returns its result', async () => {
+    const ws = await openClient()
+    send(ws, { id: '1', command: 'addId', args: { uri: 'a.mp3', position: 3 } })
+
+    expect(await response(ws)).toEqual({ type: 'response', id: '1', ok: true, data: 42 })
+    expect(mpd.addId).toHaveBeenCalledWith('a.mp3', 3)
+    ws.emit('close')
+  })
+
+  it('accepts omitted optional args and oneshot values', async () => {
+    const ws = await openClient()
+    send(ws, { id: '2', command: 'play' })
+    expect(await response(ws)).toMatchObject({ id: '2', ok: true })
+    expect(mpd.play).toHaveBeenCalledWith(undefined)
+    ws.send.mockClear()
+
+    send(ws, { id: '3', command: 'setSingle', args: { state: 'oneshot' } })
+    expect(await response(ws)).toMatchObject({ id: '3', ok: true })
+    expect(mpd.setSingle).toHaveBeenCalledWith('oneshot')
+    ws.emit('close')
+  })
+
+  it('rejects wrongly typed arguments without touching MPD', async () => {
+    const ws = await openClient()
+    send(ws, { id: '4', command: 'playId', args: { id: '7; clear' } })
+
+    expect(await response(ws)).toMatchObject({ id: '4', ok: false, error: expect.stringContaining('"id"') })
+    expect(mpd.playId).not.toHaveBeenCalled()
+    ws.send.mockClear()
+
+    send(ws, { id: '5', command: 'loadPlaylist', args: { name: '' } })
+    expect(await response(ws)).toMatchObject({ id: '5', ok: false, error: expect.stringContaining('non-empty') })
+    expect(mpd.loadPlaylist).not.toHaveBeenCalled()
+    ws.emit('close')
+  })
+
+  it('answers unknown commands and prototype keys with ok: false', async () => {
+    const ws = await openClient()
+    send(ws, { id: '6', command: 'nuke' })
+    expect(await response(ws)).toEqual({ type: 'response', id: '6', ok: false, error: 'Unknown command: nuke' })
+    ws.send.mockClear()
+
+    send(ws, { id: '7', command: 'constructor' })
+    expect(await response(ws)).toMatchObject({ id: '7', ok: false })
+    ws.emit('close')
+  })
+
+  it('ignores malformed frames', async () => {
+    const ws = await openClient()
+    send(ws, 'not json')
+    send(ws, { command: 'play' }) // no id
+    send(ws, { id: 1, command: 'play' }) // numeric id
+    send(ws, { id: '8', command: 'play', args: [1] }) // array args
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(ws.send).not.toHaveBeenCalled()
+    expect(mpd.play).not.toHaveBeenCalled()
+    ws.emit('close')
+  })
+
+  it('turns MPD failures into ok: false responses', async () => {
+    const ws = await openClient()
+    mpd.play.mockRejectedValue(new Error('Not connected'))
+    send(ws, { id: '9', command: 'play', args: { pos: 0 } })
+
+    expect(await response(ws)).toEqual({ type: 'response', id: '9', ok: false, error: 'Not connected' })
     ws.emit('close')
   })
 })

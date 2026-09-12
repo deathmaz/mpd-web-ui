@@ -1,6 +1,6 @@
 import { Socket } from 'net'
 import { EventEmitter } from 'events'
-import { parseAck } from './protocol.js'
+import { parseAck, quote } from './protocol.js'
 
 interface PendingCommand {
   resolve: (data: string) => void
@@ -150,7 +150,7 @@ export class MpdConnection extends EventEmitter {
       this.socket.connect(port, host)
     }).then(async (version) => {
       if (password) {
-        await this.sendCommand(`password ${password}`)
+        await this.sendCommand(`password ${quote(password)}`)
       }
       return version as string
     })

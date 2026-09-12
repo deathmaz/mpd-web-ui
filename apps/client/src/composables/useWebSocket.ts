@@ -1,9 +1,18 @@
 import { ref } from 'vue'
-import type { ServerMessage, ClientCommand } from '@mpd-web/shared'
+import type {
+  ServerMessage,
+  ClientCommand,
+  CommandName,
+  CommandArgs,
+  CommandResult,
+} from '@mpd-web/shared'
 import { usePlayerStore } from '@/stores/player'
 import { useQueueStore } from '@/stores/queue'
 
 const HEARTBEAT_TIMEOUT = 45_000
+// Longer than the server's 10s MPD command timeout so its failure response
+// still reaches us instead of racing our own timer.
+const COMMAND_TIMEOUT = 15_000
 
 const connected = ref(false)
 let ws: WebSocket | null = null
@@ -151,11 +160,15 @@ function connect(): void {
   }
 }
 
-export function sendCommand(
-  command: string,
-  args?: Record<string, unknown>,
-): Promise<unknown> {
-  return new Promise((resolve, reject) => {
+// Commands whose args are all optional (or none) may omit the args parameter
+type ArgsParam<K extends CommandName> =
+  Record<string, never> extends CommandArgs<K> ? [args?: CommandArgs<K>] : [args: CommandArgs<K>]
+
+export function sendCommand<K extends CommandName>(
+  command: K,
+  ...[args]: ArgsParam<K>
+): Promise<CommandResult<K>> {
+  return new Promise<CommandResult<K>>((resolve, reject) => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       reject(new Error('Not connected'))
       return
@@ -167,10 +180,14 @@ export function sendCommand(
         pendingCommands.delete(id)
         reject(new Error('Command timeout'))
       }
-    }, 10000)
-    pendingCommands.set(id, { resolve, reject, timer })
+    }, COMMAND_TIMEOUT)
+    pendingCommands.set(id, {
+      resolve: resolve as (data: unknown) => void,
+      reject,
+      timer,
+    })
 
-    const msg: ClientCommand = { id, command, args }
+    const msg: ClientCommand<K> = { id, command, args }
     ws.send(JSON.stringify(msg))
   })
 }

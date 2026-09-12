@@ -5,6 +5,7 @@ import {
   parseResponse,
   parseListResponse,
   parseValueList,
+  quote,
   MpdError,
 } from './protocol.js'
 import type {
@@ -305,14 +306,14 @@ export class MpdClient extends EventEmitter {
   }
 
   async add(uri: string): Promise<void> {
-    await this.cmdConn.sendCommand(`add "${uri}"`)
+    await this.cmdConn.sendCommand(`add ${quote(uri)}`)
   }
 
   async addMultiple(uris: string[]): Promise<void> {
     if (uris.length === 0) return
     const commands = ['command_list_begin']
     for (const uri of uris) {
-      commands.push(`add "${uri}"`)
+      commands.push(`add ${quote(uri)}`)
     }
     commands.push('command_list_end')
     await this.cmdConn.sendCommand(commands.join('\n'))
@@ -325,8 +326,8 @@ export class MpdClient extends EventEmitter {
   async addId(uri: string, position?: number): Promise<number> {
     const cmd =
       position !== undefined
-        ? `addid "${uri}" ${position}`
-        : `addid "${uri}"`
+        ? `addid ${quote(uri)} ${position}`
+        : `addid ${quote(uri)}`
     const response = await this.cmdConn.sendCommand(cmd)
     const m = parseResponse(response)
     return parseInt(m.get('Id') || '0')
@@ -371,7 +372,7 @@ export class MpdClient extends EventEmitter {
 
   async listAlbums(artist?: string): Promise<{ album: string; artist: string }[]> {
     const cmd = artist
-      ? `list Album AlbumArtist "${artist}"`
+      ? `list Album AlbumArtist ${quote(artist)}`
       : 'list Album group AlbumArtist'
     const response = await this.cmdConn.sendCommand(cmd)
     if (artist) {
@@ -393,7 +394,7 @@ export class MpdClient extends EventEmitter {
   }
 
   async lsinfo(uri = ''): Promise<MpdDirectoryEntry[]> {
-    const cmd = uri ? `lsinfo "${uri}"` : 'lsinfo'
+    const cmd = uri ? `lsinfo ${quote(uri)}` : 'lsinfo'
     const response = await this.cmdConn.sendCommand(cmd)
     const entries: MpdDirectoryEntry[] = []
     let current: Map<string, string> | null = null
@@ -457,19 +458,21 @@ export class MpdClient extends EventEmitter {
   }
 
   async search(query: string, type = 'any'): Promise<MpdSong[]> {
-    const escaped = query.replace(/"/g, '\\"')
+    // `type` is a bare (unquoted) tag name on the wire, so it cannot be
+    // escaped; only accept identifiers.
+    if (!/^[A-Za-z_]+$/.test(type)) {
+      throw new Error(`Invalid search type: ${type}`)
+    }
     const response = await this.cmdConn.sendCommand(
-      `search ${type} "${escaped}"`,
+      `search ${type} ${quote(query)}`,
     )
     return parseListResponse(response, 'file').map(mapToSong)
   }
 
   private buildFindAlbumCommand(album: string, artist?: string): string {
-    const escAlbum = album.replace(/"/g, '\\"')
-    let cmd = `find Album "${escAlbum}"`
+    let cmd = `find Album ${quote(album)}`
     if (artist) {
-      const escArtist = artist.replace(/"/g, '\\"')
-      cmd += ` AlbumArtist "${escArtist}"`
+      cmd += ` AlbumArtist ${quote(artist)}`
     }
     return cmd
   }
@@ -520,7 +523,7 @@ export class MpdClient extends EventEmitter {
     offset = 0,
   ): Promise<{ size: number; type?: string; data: Buffer }> {
     const result = await this.cmdConn.sendBinaryCommand(
-      `albumart "${uri}" ${offset}`,
+      `albumart ${quote(uri)} ${offset}`,
     )
     return {
       size: parseInt(result.headers.get('size') || '0'),
@@ -534,7 +537,7 @@ export class MpdClient extends EventEmitter {
     offset = 0,
   ): Promise<{ size: number; type?: string; data: Buffer }> {
     const result = await this.cmdConn.sendBinaryCommand(
-      `readpicture "${uri}" ${offset}`,
+      `readpicture ${quote(uri)} ${offset}`,
     )
     return {
       size: parseInt(result.headers.get('size') || '0'),
@@ -609,27 +612,27 @@ export class MpdClient extends EventEmitter {
 
   async listPlaylistInfo(name: string): Promise<MpdSong[]> {
     const response = await this.cmdConn.sendCommand(
-      `listplaylistinfo "${name}"`,
+      `listplaylistinfo ${quote(name)}`,
     )
     return parseListResponse(response, 'file').map(mapToSong)
   }
 
   async loadPlaylist(name: string): Promise<void> {
-    await this.cmdConn.sendCommand(`load "${name}"`)
+    await this.cmdConn.sendCommand(`load ${quote(name)}`)
   }
 
   async savePlaylist(name: string): Promise<void> {
-    await this.cmdConn.sendCommand(`save "${name}"`)
+    await this.cmdConn.sendCommand(`save ${quote(name)}`)
   }
 
   async deletePlaylist(name: string): Promise<void> {
-    await this.cmdConn.sendCommand(`rm "${name}"`)
+    await this.cmdConn.sendCommand(`rm ${quote(name)}`)
   }
 
   // ---- Database ----
 
   async update(uri?: string): Promise<number> {
-    const cmd = uri ? `update "${uri}"` : 'update'
+    const cmd = uri ? `update ${quote(uri)}` : 'update'
     const response = await this.cmdConn.sendCommand(cmd)
     const m = parseResponse(response)
     return parseInt(m.get('updating_db') || '0')

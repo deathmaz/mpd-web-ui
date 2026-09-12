@@ -242,4 +242,54 @@ describe('MpdClient', () => {
       expect(cmdConn.listenerCount('error')).toBe(1)
     })
   })
+
+  describe('argument quoting', () => {
+    async function connectedClient() {
+      const t = createTestClient()
+      t.idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+      await t.client.connect()
+      t.cmdConn.sendCommand.mockClear()
+      return t
+    }
+
+    it('quotes and escapes URIs and names', async () => {
+      const { client, cmdConn } = await connectedClient()
+
+      await client.add('Dir "A"/song.mp3')
+      expect(cmdConn.sendCommand).toHaveBeenLastCalledWith('add "Dir \\"A\\"/song.mp3"')
+
+      await client.loadPlaylist('back\\slash')
+      expect(cmdConn.sendCommand).toHaveBeenLastCalledWith('load "back\\\\slash"')
+
+      await client.lsinfo('a b')
+      expect(cmdConn.sendCommand).toHaveBeenLastCalledWith('lsinfo "a b"')
+
+      await client.search('say "hi"', 'title')
+      expect(cmdConn.sendCommand).toHaveBeenLastCalledWith('search title "say \\"hi\\""')
+
+      await client.findAlbumSongs('Al"bum', 'Art"ist')
+      expect(cmdConn.sendCommand).toHaveBeenLastCalledWith('find Album "Al\\"bum" AlbumArtist "Art\\"ist"')
+    })
+
+    it('quotes every URI in addMultiple', async () => {
+      const { client, cmdConn } = await connectedClient()
+      await client.addMultiple(['a"b.mp3', 'c.mp3'])
+      expect(cmdConn.sendCommand).toHaveBeenLastCalledWith(
+        'command_list_begin\nadd "a\\"b.mp3"\nadd "c.mp3"\ncommand_list_end',
+      )
+    })
+
+    it('refuses arguments containing line breaks instead of sending a second command', async () => {
+      const { client, cmdConn } = await connectedClient()
+      await expect(client.add('x"\nclear')).rejects.toThrow('line breaks')
+      await expect(client.savePlaylist('name\nrm "other"')).rejects.toThrow('line breaks')
+      expect(cmdConn.sendCommand).not.toHaveBeenCalled()
+    })
+
+    it('rejects non-identifier search types', async () => {
+      const { client, cmdConn } = await connectedClient()
+      await expect(client.search('x', 'any "y"')).rejects.toThrow('Invalid search type')
+      expect(cmdConn.sendCommand).not.toHaveBeenCalled()
+    })
+  })
 })

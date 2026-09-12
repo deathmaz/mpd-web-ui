@@ -77,9 +77,45 @@ export type ServerMessage =
   | ServerPing
   | MpdConnectionUpdate
 
-// Client -> Server messages
-export interface ClientCommand {
+// Client -> Server commands. Single source of truth for the command names,
+// their arguments and their result type; the server handler table and the
+// client's sendCommand() are both typed from it.
+export interface CommandMap {
+  play: { args: { pos?: number }; result: void }
+  playId: { args: { id: number }; result: void }
+  pause: { args: { state?: boolean }; result: void }
+  stop: { args: NoArgs; result: void }
+  next: { args: NoArgs; result: void }
+  previous: { args: NoArgs; result: void }
+  seekCur: { args: { time: number }; result: void }
+  setVolume: { args: { volume: number }; result: void }
+  setRepeat: { args: { state: boolean }; result: void }
+  setRandom: { args: { state: boolean }; result: void }
+  setSingle: { args: { state: boolean | 'oneshot' }; result: void }
+  setConsume: { args: { state: boolean | 'oneshot' }; result: void }
+  add: { args: { uri: string }; result: void }
+  addMultiple: { args: { uris: string[] }; result: void }
+  addId: { args: { uri: string; position?: number }; result: number }
+  deleteId: { args: { id: number }; result: void }
+  deleteMultipleIds: { args: { ids: number[] }; result: void }
+  move: { args: { from: number; to: number }; result: void }
+  clear: { args: NoArgs; result: void }
+  shuffle: { args: NoArgs; result: void }
+  loadPlaylist: { args: { name: string }; result: void }
+  savePlaylist: { args: { name: string }; result: void }
+  deletePlaylist: { args: { name: string }; result: void }
+  enableOutput: { args: { id: number }; result: void }
+  disableOutput: { args: { id: number }; result: void }
+  toggleOutput: { args: { id: number }; result: void }
+}
+
+export type NoArgs = Record<string, never>
+export type CommandName = keyof CommandMap
+export type CommandArgs<K extends CommandName> = CommandMap[K]['args']
+export type CommandResult<K extends CommandName> = CommandMap[K]['result']
+
+export interface ClientCommand<K extends CommandName = CommandName> {
   id: string
-  command: string
-  args?: Record<string, unknown>
+  command: K
+  args?: CommandArgs<K>
 }

@@ -29,6 +29,24 @@ export class MpdError extends Error {
   }
 }
 
+/**
+ * Quote a string argument for the MPD wire protocol: wrap in double quotes,
+ * backslash-escape `\\` and `"`. Line breaks terminate MPD commands and can
+ * never be represented inside an argument, so they are rejected outright
+ * (this is what stops a client-supplied URI from smuggling a second command).
+ *
+ * Every string that ends up in a command must go through this function.
+ */
+export function quote(value: string): string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`MPD argument must be a string, got ${typeof value}`)
+  }
+  if (/[\r\n]/.test(value)) {
+    throw new Error('MPD argument must not contain line breaks')
+  }
+  return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
+}
+
 const ACK_RE = /^ACK \[(\d+)@(\d+)\] \{([^}]*)\} (.+)$/
 
 export function parseAck(line: string): MpdError | null {

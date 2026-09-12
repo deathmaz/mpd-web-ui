@@ -1,6 +1,8 @@
 import type { WebSocket } from 'ws'
 import type {
   ClientCommand,
+  CommandName,
+  CommandResult,
   StateUpdate,
   CommandResponse,
   ServerPing,
@@ -21,108 +23,124 @@ async function getFullState(): Promise<StateUpdate> {
   return { type: 'state', status, currentSong, queue, outputs }
 }
 
-async function handleCommand(
-  ws: WebSocket,
-  msg: ClientCommand,
-): Promise<void> {
-  const mpd = getMpdClient()
-  const response: CommandResponse = {
-    type: 'response',
-    id: msg.id,
-    ok: true,
+class InvalidArgument extends Error {
+  constructor(name: string, expected: string) {
+    super(`Invalid argument "${name}": expected ${expected}`)
+    this.name = 'InvalidArgument'
   }
+}
 
-  try {
-    const args = msg.args || {}
-    switch (msg.command) {
-      case 'play':
-        await mpd.play(args.pos as number | undefined)
-        break
-      case 'playId':
-        await mpd.playId(args.id as number)
-        break
-      case 'pause':
-        await mpd.pause(args.state as boolean | undefined)
-        break
-      case 'stop':
-        await mpd.stop()
-        break
-      case 'next':
-        await mpd.next()
-        break
-      case 'previous':
-        await mpd.previous()
-        break
-      case 'seekCur':
-        await mpd.seekCur(args.time as number)
-        break
-      case 'setVolume':
-        await mpd.setVolume(args.volume as number)
-        break
-      case 'setRepeat':
-        await mpd.setRepeat(args.state as boolean)
-        break
-      case 'setRandom':
-        await mpd.setRandom(args.state as boolean)
-        break
-      case 'setSingle':
-        await mpd.setSingle(args.state as boolean | 'oneshot')
-        break
-      case 'setConsume':
-        await mpd.setConsume(args.state as boolean | 'oneshot')
-        break
-      case 'add':
-        await mpd.add(args.uri as string)
-        break
-      case 'addMultiple':
-        await mpd.addMultiple(args.uris as string[])
-        break
-      case 'addId':
-        response.data = await mpd.addId(
-          args.uri as string,
-          args.position as number | undefined,
-        )
-        break
-      case 'deleteId':
-        await mpd.deleteId(args.id as number)
-        break
-      case 'deleteMultipleIds':
-        await mpd.deleteMultipleIds(args.ids as number[])
-        break
-      case 'move':
-        await mpd.move(args.from as number, args.to as number)
-        break
-      case 'clear':
-        await mpd.clear()
-        break
-      case 'shuffle':
-        await mpd.shuffle()
-        break
-      case 'loadPlaylist':
-        await mpd.loadPlaylist(args.name as string)
-        break
-      case 'savePlaylist':
-        await mpd.savePlaylist(args.name as string)
-        break
-      case 'deletePlaylist':
-        await mpd.deletePlaylist(args.name as string)
-        break
-      case 'enableOutput':
-        await mpd.enableOutput(args.id as number)
-        break
-      case 'disableOutput':
-        await mpd.disableOutput(args.id as number)
-        break
-      case 'toggleOutput':
-        await mpd.toggleOutput(args.id as number)
-        break
-      default:
-        response.ok = false
-        response.error = `Unknown command: ${msg.command}`
-    }
-  } catch (err: unknown) {
+// Wire args are untrusted JSON; every handler pulls its arguments through
+// one of these so a bad payload turns into an `ok: false` response instead
+// of a malformed MPD command.
+function int(v: unknown, name: string): number {
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) {
+    throw new InvalidArgument(name, 'non-negative integer')
+  }
+  return v
+}
+
+function optInt(v: unknown, name: string): number | undefined {
+  return v === undefined ? undefined : int(v, name)
+}
+
+function num(v: unknown, name: string): number {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+    throw new InvalidArgument(name, 'non-negative number')
+  }
+  return v
+}
+
+function bool(v: unknown, name: string): boolean {
+  if (typeof v !== 'boolean') throw new InvalidArgument(name, 'boolean')
+  return v
+}
+
+function optBool(v: unknown, name: string): boolean | undefined {
+  return v === undefined ? undefined : bool(v, name)
+}
+
+function boolOrOneshot(v: unknown, name: string): boolean | 'oneshot' {
+  if (v === 'oneshot') return v
+  if (typeof v !== 'boolean') throw new InvalidArgument(name, "boolean or 'oneshot'")
+  return v
+}
+
+function str(v: unknown, name: string): string {
+  if (typeof v !== 'string') throw new InvalidArgument(name, 'string')
+  return v
+}
+
+function nonEmptyStr(v: unknown, name: string): string {
+  const value = str(v, name)
+  if (value.length === 0) throw new InvalidArgument(name, 'non-empty string')
+  return value
+}
+
+function strArray(v: unknown, name: string): string[] {
+  if (!Array.isArray(v)) throw new InvalidArgument(name, 'array of strings')
+  return v.map((item, i) => str(item, `${name}[${i}]`))
+}
+
+function intArray(v: unknown, name: string): number[] {
+  if (!Array.isArray(v)) throw new InvalidArgument(name, 'array of integers')
+  return v.map((item, i) => int(item, `${name}[${i}]`))
+}
+
+type Args = Record<string, unknown>
+type Mpd = ReturnType<typeof getMpdClient>
+type CommandHandlers = {
+  [K in CommandName]: (mpd: Mpd, args: Args) => Promise<CommandResult<K>>
+}
+
+const commands: CommandHandlers = {
+  play: (mpd, a) => mpd.play(optInt(a.pos, 'pos')),
+  playId: (mpd, a) => mpd.playId(int(a.id, 'id')),
+  pause: (mpd, a) => mpd.pause(optBool(a.state, 'state')),
+  stop: (mpd) => mpd.stop(),
+  next: (mpd) => mpd.next(),
+  previous: (mpd) => mpd.previous(),
+  seekCur: (mpd, a) => mpd.seekCur(num(a.time, 'time')),
+  setVolume: (mpd, a) => mpd.setVolume(int(a.volume, 'volume')),
+  setRepeat: (mpd, a) => mpd.setRepeat(bool(a.state, 'state')),
+  setRandom: (mpd, a) => mpd.setRandom(bool(a.state, 'state')),
+  setSingle: (mpd, a) => mpd.setSingle(boolOrOneshot(a.state, 'state')),
+  setConsume: (mpd, a) => mpd.setConsume(boolOrOneshot(a.state, 'state')),
+  add: (mpd, a) => mpd.add(str(a.uri, 'uri')),
+  addMultiple: (mpd, a) => mpd.addMultiple(strArray(a.uris, 'uris')),
+  addId: (mpd, a) => mpd.addId(str(a.uri, 'uri'), optInt(a.position, 'position')),
+  deleteId: (mpd, a) => mpd.deleteId(int(a.id, 'id')),
+  deleteMultipleIds: (mpd, a) => mpd.deleteMultipleIds(intArray(a.ids, 'ids')),
+  move: (mpd, a) => mpd.move(int(a.from, 'from'), int(a.to, 'to')),
+  clear: (mpd) => mpd.clear(),
+  shuffle: (mpd) => mpd.shuffle(),
+  loadPlaylist: (mpd, a) => mpd.loadPlaylist(nonEmptyStr(a.name, 'name')),
+  savePlaylist: (mpd, a) => mpd.savePlaylist(nonEmptyStr(a.name, 'name')),
+  deletePlaylist: (mpd, a) => mpd.deletePlaylist(nonEmptyStr(a.name, 'name')),
+  enableOutput: (mpd, a) => mpd.enableOutput(int(a.id, 'id')),
+  disableOutput: (mpd, a) => mpd.disableOutput(int(a.id, 'id')),
+  toggleOutput: (mpd, a) => mpd.toggleOutput(int(a.id, 'id')),
+}
+
+function isCommandName(name: string): name is CommandName {
+  // hasOwn, not `in`: keeps prototype keys like "constructor" out
+  return Object.hasOwn(commands, name)
+}
+
+async function handleCommand(ws: WebSocket, msg: ClientCommand): Promise<void> {
+  const response: CommandResponse = { type: 'response', id: msg.id, ok: true }
+
+  if (!isCommandName(msg.command)) {
     response.ok = false
-    response.error = err instanceof Error ? err.message : String(err)
+    response.error = `Unknown command: ${msg.command}`
+  } else {
+    try {
+      const data = await commands[msg.command](getMpdClient(), msg.args ?? {})
+      if (data !== undefined) response.data = data
+    } catch (err: unknown) {
+      response.ok = false
+      response.error = err instanceof Error ? err.message : String(err)
+    }
   }
 
   if (ws.readyState === ws.OPEN) {
@@ -131,6 +149,16 @@ async function handleCommand(
 }
 
 const PING_INTERVAL = 30_000
+
+function isClientCommand(msg: unknown): msg is ClientCommand {
+  if (typeof msg !== 'object' || msg === null) return false
+  const m = msg as Record<string, unknown>
+  return (
+    typeof m.id === 'string' &&
+    typeof m.command === 'string' &&
+    (m.args === undefined || (typeof m.args === 'object' && m.args !== null && !Array.isArray(m.args)))
+  )
+}
 
 function mpdStatusMessage(connected: boolean): MpdConnectionUpdate {
   return { type: 'mpd', connected }
@@ -160,16 +188,16 @@ export function setupWebSocketHandler(ws: WebSocket): void {
   }
 
   ws.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {
+    let msg: unknown
     try {
-      const msg: ClientCommand = JSON.parse(raw.toString())
-      if (msg.id && msg.command) {
-        handleCommand(ws, msg).catch((err) => {
-          console.error('Unhandled error in command handler:', err)
-        })
-      }
+      msg = JSON.parse(raw.toString())
     } catch {
-      // Ignore malformed messages
+      return // Ignore malformed messages
     }
+    if (!isClientCommand(msg)) return
+    handleCommand(ws, msg).catch((err) => {
+      console.error('Unhandled error in command handler:', err)
+    })
   })
 
   // Heartbeat, two halves:

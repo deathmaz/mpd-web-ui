@@ -50,7 +50,7 @@ async function addSong(uri: string) {
 }
 
 async function addAndPlay(uri: string) {
-  const id = await sendCommand('addId', { uri }) as number
+  const id = await sendCommand('addId', { uri })
   await sendCommand('playId', { id })
 }
 </script>
