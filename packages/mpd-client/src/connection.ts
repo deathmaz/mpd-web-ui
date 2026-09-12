@@ -18,6 +18,7 @@ interface PendingCommandList {
 }
 
 const NEWLINE = 0x0a // '\n'
+const CONNECT_TIMEOUT_MS = 5_000
 
 /**
  * A single TCP connection to MPD.
@@ -69,6 +70,14 @@ export class MpdConnection extends EventEmitter {
 
       let greeted = false
 
+      // A host that accepts TCP but never greets (wrong service, firewall
+      // blackhole) would otherwise hang connect() forever.
+      const connectTimer = setTimeout(() => {
+        if (!greeted) {
+          this.socket?.destroy(new Error(`Connect timeout after ${CONNECT_TIMEOUT_MS}ms`))
+        }
+      }, CONNECT_TIMEOUT_MS)
+
       const onData = (chunk: Buffer) => {
         if (!greeted) {
           // First data is the greeting: "OK MPD x.y.z\n"
@@ -81,6 +90,7 @@ export class MpdConnection extends EventEmitter {
             const rest = this.rawBuffer.subarray(nlIdx + 1)
             this.rawBuffer = Buffer.alloc(0)
             if (greeting.startsWith('OK MPD')) {
+              clearTimeout(connectTimer)
               this.protocolVersion = greeting.substring(7)
               greeted = true
               this._connected = true
@@ -92,6 +102,8 @@ export class MpdConnection extends EventEmitter {
               }
               resolve(this.protocolVersion)
             } else {
+              clearTimeout(connectTimer)
+              this.socket!.destroy()
               reject(new Error(`Unexpected MPD greeting: ${greeting}`))
             }
           }
@@ -102,8 +114,13 @@ export class MpdConnection extends EventEmitter {
       this.socket.on('data', onData)
       this.socket.on('error', (err) => {
         this._connected = false
-        this.emit('error', err)
-        if (!greeted) reject(err)
+        if (!greeted) {
+          // Connect-phase failure: the rejected promise is the report
+          clearTimeout(connectTimer)
+          reject(err)
+          return
+        }
+        this.safeEmitError(err)
       })
       this.socket.on('close', () => {
         this._connected = false
@@ -137,6 +154,16 @@ export class MpdConnection extends EventEmitter {
       }
       return version as string
     })
+  }
+
+  /**
+   * EventEmitter throws on 'error' when nobody listens, which would take the
+   * whole process down from inside a socket callback. Never let that happen.
+   */
+  private safeEmitError(err: Error): void {
+    if (this.listenerCount('error') > 0) {
+      this.emit('error', err)
+    }
   }
 
   disconnect(): void {

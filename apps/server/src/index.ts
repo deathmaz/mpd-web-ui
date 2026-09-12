@@ -7,7 +7,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync } from 'fs'
 import { config } from './config.js'
-import { connectMpd } from './services/mpd.js'
+import { startMpd } from './services/mpd.js'
 import { setupWebSocketHandler, setupMpdEventBroadcasting } from './ws/handler.js'
 import { streamRoutes } from './routes/stream.js'
 import { artRoutes } from './routes/art.js'
@@ -64,19 +64,29 @@ async function main() {
     })
   }
 
-  // Connect to MPD then start server
   // Set up event broadcasting before connecting — it listens on the MpdClient
-  // EventEmitter which persists across reconnects
+  // EventEmitter which persists across reconnects. startMpd() never throws;
+  // the server comes up regardless and the client retries in the background.
   setupMpdEventBroadcasting()
-  try {
-    await connectMpd()
-  } catch (err) {
-    fastify.log.error('Failed to connect to MPD: %s', err)
-    fastify.log.info('Server starting without MPD connection, will retry...')
-  }
+  const mpd = startMpd()
+
+  fastify.addHook('onClose', async () => {
+    mpd.disconnect()
+  })
 
   await fastify.listen({ host: config.host, port: config.port })
   console.log(`Server listening on http://${config.host}:${config.port}`)
+
+  // Graceful shutdown: close HTTP + WS clients, then the MPD sockets
+  const shutdown = (signal: string) => {
+    fastify.log.info(`Received ${signal}, shutting down`)
+    fastify.close().then(
+      () => process.exit(0),
+      () => process.exit(1),
+    )
+  }
+  process.once('SIGINT', () => shutdown('SIGINT'))
+  process.once('SIGTERM', () => shutdown('SIGTERM'))
 }
 
 main().catch((err) => {

@@ -167,4 +167,79 @@ describe('MpdClient', () => {
       expect(client.connected).toBe(false)
     })
   })
+
+  describe('connectWithRetry', () => {
+    it('emits error and schedules a retry when connect fails, without throwing', async () => {
+      const { client, cmdConn, idleConn } = createTestClient()
+      cmdConn.connect.mockRejectedValue(new Error('ECONNREFUSED'))
+      idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+
+      const errorHandler = vi.fn()
+      client.on('error', errorHandler)
+
+      client.connectWithRetry()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(errorHandler).toHaveBeenCalledOnce()
+      expect(errorHandler.mock.calls[0][0].message).toMatch(/Connect failed \(retry in 1s\)/)
+      expect(client.connected).toBe(false)
+      expect((client as any).reconnectTimer).not.toBeNull()
+    })
+
+    it('does not throw when connect fails and nobody listens for errors', async () => {
+      const { client, cmdConn } = createTestClient()
+      cmdConn.connect.mockRejectedValue(new Error('ECONNREFUSED'))
+
+      client.connectWithRetry()
+      await expect(vi.advanceTimersByTimeAsync(0)).resolves.toBeDefined()
+      expect((client as any).reconnectTimer).not.toBeNull()
+    })
+
+    it('disconnect() cancels the pending retry', async () => {
+      const { client, cmdConn } = createTestClient()
+      cmdConn.connect.mockRejectedValue(new Error('ECONNREFUSED'))
+
+      client.connectWithRetry()
+      await vi.advanceTimersByTimeAsync(0)
+      expect((client as any).reconnectTimer).not.toBeNull()
+
+      client.disconnect()
+      expect((client as any).reconnectTimer).toBeNull()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect((client as any).reconnectTimer).toBeNull()
+    })
+  })
+
+  describe('connection errors', () => {
+    it('forwards connection errors to the client error event', async () => {
+      const { client, cmdConn, idleConn } = createTestClient()
+      idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+      await client.connect()
+
+      const errorHandler = vi.fn()
+      client.on('error', errorHandler)
+      const err = new Error('ECONNRESET')
+      cmdConn.emit('error', err)
+
+      expect(errorHandler).toHaveBeenCalledWith(err)
+    })
+
+    it('swallows connection errors when the client has no error listener', async () => {
+      const { client, cmdConn, idleConn } = createTestClient()
+      idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+      await client.connect()
+
+      expect(() => cmdConn.emit('error', new Error('ECONNRESET'))).not.toThrow()
+    })
+
+    it('does not accumulate listeners when connect() runs twice on the same connections', async () => {
+      const { client, cmdConn, idleConn } = createTestClient()
+      idleConn.sendCommand.mockReturnValue(new Promise(() => {}))
+      await client.connect()
+      await client.connect()
+
+      expect(cmdConn.listenerCount('close')).toBe(1)
+      expect(cmdConn.listenerCount('error')).toBe(1)
+    })
+  })
 })

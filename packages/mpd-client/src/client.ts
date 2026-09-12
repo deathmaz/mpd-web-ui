@@ -85,6 +85,11 @@ export class MpdClient extends EventEmitter {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectDelay = 1000
   private _connected = false
+  /** Set by disconnect(); stops any pending or future automatic reconnect. */
+  private closed = false
+
+  private readonly onConnClose = (): void => this.handleDisconnect()
+  private readonly onConnError = (err: Error): void => this.safeEmitError(err)
 
   get connected(): boolean {
     return this._connected
@@ -97,8 +102,23 @@ export class MpdClient extends EventEmitter {
     this.idleConn = new MpdConnection()
   }
 
+  /**
+   * Connect both connections. Rejects on failure and does NOT retry; use
+   * connectWithRetry() for a long-lived client.
+   */
   async connect(): Promise<void> {
     const { host, port, password } = this.options
+    this.closed = false
+
+    // Listen before connecting so a failure mid-handshake is observed here
+    // and not as an unhandled 'error' event. off() first keeps this idempotent
+    // if connect() is called twice on the same connection objects.
+    for (const conn of [this.cmdConn, this.idleConn]) {
+      conn.off('close', this.onConnClose)
+      conn.off('error', this.onConnError)
+      conn.on('close', this.onConnClose)
+      conn.on('error', this.onConnError)
+    }
 
     await Promise.all([
       this.cmdConn.connect(host, port, password),
@@ -108,17 +128,29 @@ export class MpdClient extends EventEmitter {
     this._connected = true
     this.reconnectDelay = 1000
 
-    // Use once() to prevent listener accumulation across reconnects
-    this.cmdConn.once('close', () => this.handleDisconnect())
-    this.idleConn.once('close', () => this.handleDisconnect())
-    this.cmdConn.once('error', (err) => this.emit('error', err))
-    this.idleConn.once('error', (err) => this.emit('error', err))
-
     this.startIdleLoop()
     this.emit('connect')
   }
 
+  /**
+   * Connect and keep retrying with backoff until disconnect() is called.
+   * Failures are reported through the 'error' event instead of a rejection.
+   */
+  connectWithRetry(): void {
+    this.closed = false
+    this.connect().catch((err) => {
+      if (this.closed) return
+      this.safeEmitError(
+        new Error(
+          `Connect failed (retry in ${this.reconnectDelay / 1000}s): ${err instanceof Error ? err.message : err}`,
+        ),
+      )
+      this.scheduleReconnect()
+    })
+  }
+
   disconnect(): void {
+    this.closed = true
     this.idleRunning = false
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
@@ -127,6 +159,12 @@ export class MpdClient extends EventEmitter {
     this.cmdConn.disconnect()
     this.idleConn.disconnect()
     this._connected = false
+  }
+
+  private safeEmitError(err: unknown): void {
+    if (this.listenerCount('error') > 0) {
+      this.emit('error', err)
+    }
   }
 
   private handleDisconnect(): void {
@@ -140,9 +178,10 @@ export class MpdClient extends EventEmitter {
   }
 
   private scheduleReconnect(): void {
-    if (this.reconnectTimer) return
+    if (this.reconnectTimer || this.closed) return
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null
+      if (this.closed) return
       try {
         this.cmdConn.disconnect()
         this.idleConn.disconnect()
@@ -151,8 +190,9 @@ export class MpdClient extends EventEmitter {
         await this.connect()
         this.emit('reconnect')
       } catch (err) {
+        if (this.closed) return
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
-        this.emit('error', new Error(`Reconnect failed (retry in ${this.reconnectDelay / 1000}s): ${err instanceof Error ? err.message : err}`))
+        this.safeEmitError(new Error(`Reconnect failed (retry in ${this.reconnectDelay / 1000}s): ${err instanceof Error ? err.message : err}`))
         this.scheduleReconnect()
       }
     }, this.reconnectDelay)
@@ -171,7 +211,7 @@ export class MpdClient extends EventEmitter {
         }
       } catch (err) {
         if (this.idleRunning) {
-          this.emit('error', err)
+          this.safeEmitError(err)
           // Trigger reconnect — idle loop dying means we can't receive events
           this.handleDisconnect()
           return

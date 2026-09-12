@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
+import net from 'net'
 import { MpdConnection } from '../connection.js'
 import { MpdError } from '../protocol.js'
 
@@ -447,6 +448,72 @@ describe('MpdConnection', () => {
       await expect(promise).rejects.toThrow('Connection closed')
       expect(socket.destroy).toHaveBeenCalled()
       vi.useRealTimers()
+    })
+  })
+
+  describe('real socket connect', () => {
+    afterEach(() => { vi.useRealTimers() })
+
+    it('rejects connect() without emitting error when the port is closed', async () => {
+      const conn = new MpdConnection()
+      const errorHandler = vi.fn()
+      conn.on('error', errorHandler)
+
+      await expect(conn.connect('127.0.0.1', 1)).rejects.toThrow(/ECONNREFUSED/)
+      expect(errorHandler).not.toHaveBeenCalled()
+      expect(conn.connected).toBe(false)
+    })
+
+    it('does not throw on a connect failure when nobody listens for error', async () => {
+      const conn = new MpdConnection()
+      await expect(conn.connect('127.0.0.1', 1)).rejects.toThrow()
+    })
+
+    it('times out when the server accepts but never greets', async () => {
+      const server = net.createServer(() => { /* silent */ })
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const port = (server.address() as net.AddressInfo).port
+
+      // Only fake setTimeout so real socket I/O still runs
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      const conn = new MpdConnection()
+      // Attach the rejection handler before the timer fires
+      const rejection = expect(conn.connect('127.0.0.1', port)).rejects.toThrow('Connect timeout')
+      await vi.advanceTimersByTimeAsync(5_000)
+
+      await rejection
+      expect(conn.connected).toBe(false)
+      vi.useRealTimers()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    })
+
+    it('rejects and closes the socket on a non-MPD greeting', async () => {
+      const server = net.createServer((socket) => { socket.write('220 not mpd\n') })
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const port = (server.address() as net.AddressInfo).port
+
+      const conn = new MpdConnection()
+      await expect(conn.connect('127.0.0.1', port)).rejects.toThrow('Unexpected MPD greeting')
+      expect(conn.connected).toBe(false)
+      await new Promise<void>((resolve) => server.close(() => resolve()))
+    })
+
+    it('survives a post-greeting socket error with no error listener', async () => {
+      const server = net.createServer((socket) => {
+        socket.write('OK MPD 0.23.5\n')
+        // Force an ECONNRESET on the client side
+        setTimeout(() => socket.resetAndDestroy(), 10)
+      })
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const port = (server.address() as net.AddressInfo).port
+
+      const conn = new MpdConnection()
+      const version = await conn.connect('127.0.0.1', port)
+      expect(version).toBe('0.23.5')
+
+      await new Promise<void>((resolve) => conn.once('close', resolve))
+      expect(conn.connected).toBe(false)
+      await new Promise<void>((resolve) => server.close(() => resolve()))
     })
   })
 })

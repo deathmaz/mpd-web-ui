@@ -16,22 +16,25 @@ export function getMpdClient(): MpdClient {
       console.error('MPD error:', err instanceof Error ? err.message : err)
     })
 
-    client.on('disconnect', () => {
-      console.warn('MPD disconnected, will attempt to reconnect...')
+    client.on('connect', () => {
+      console.log(`Connected to MPD at ${config.mpdHost}:${config.mpdPort}`)
     })
 
-    client.on('reconnect', () => {
-      console.log(`Reconnected to MPD at ${config.mpdHost}:${config.mpdPort}`)
+    client.on('disconnect', () => {
+      console.warn('MPD disconnected, will attempt to reconnect...')
     })
   }
   return client
 }
 
-export async function connectMpd(): Promise<MpdClient> {
+/**
+ * Start the MPD client. Never throws: if MPD is unreachable the client keeps
+ * retrying with backoff and emits 'connect' once it gets through.
+ */
+export function startMpd(): MpdClient {
   const mpd = getMpdClient()
   if (!mpd.connected) {
-    await mpd.connect()
-    console.log(`Connected to MPD at ${config.mpdHost}:${config.mpdPort}`)
+    mpd.connectWithRetry()
   }
   return mpd
 }

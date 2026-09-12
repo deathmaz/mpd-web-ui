@@ -146,6 +146,8 @@ The server maintains two persistent TCP connections to MPD:
 - **Command connection** — serialized command queue for playback control, library queries, album art
 - **Idle connection** — permanent `idle` loop that receives subsystem change events and broadcasts them to all WebSocket clients in real time
 
+If MPD is unreachable at startup or drops mid-session, the server keeps running and reconnects automatically with exponential backoff (1s up to 30s).
+
 The `/api/stream` endpoint proxies MPD's httpd output so only one port needs to be exposed on your network.
 
 ### Snapcast integration
