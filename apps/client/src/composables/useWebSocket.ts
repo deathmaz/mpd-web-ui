@@ -34,6 +34,7 @@ function handleMessage(event: MessageEvent): void {
 
   switch (msg.type) {
     case 'state':
+      playerStore.mpdConnected = true
       playerStore.updateStatus(msg.status)
       playerStore.updateCurrentSong(msg.currentSong)
       queueStore.updateQueue(msg.queue)
@@ -76,6 +77,9 @@ function handleMessage(event: MessageEvent): void {
       break
     case 'ping':
       // Server keepalive; ws.onmessage already reset the heartbeat
+      break
+    case 'mpd':
+      playerStore.mpdConnected = msg.connected
       break
   }
 }

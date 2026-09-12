@@ -1,5 +1,11 @@
 import type { WebSocket } from 'ws'
-import type { ClientCommand, StateUpdate, CommandResponse, ServerPing } from '@mpd-web/shared'
+import type {
+  ClientCommand,
+  StateUpdate,
+  CommandResponse,
+  ServerPing,
+  MpdConnectionUpdate,
+} from '@mpd-web/shared'
 import { getMpdClient } from '../services/mpd.js'
 import { addClient, broadcast } from './broadcaster.js'
 import { createDebouncedBroadcaster } from './debounce.js'
@@ -126,22 +132,32 @@ async function handleCommand(
 
 const PING_INTERVAL = 30_000
 
+function mpdStatusMessage(connected: boolean): MpdConnectionUpdate {
+  return { type: 'mpd', connected }
+}
+
 export function setupWebSocketHandler(ws: WebSocket): void {
   addClient(ws)
 
-  // Send full state on connect
-  getFullState()
-    .then((state) => {
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify(state))
-      }
-    })
-    .catch((err) => {
-      console.error('Failed to send initial state:', err)
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({ type: 'error', message: 'MPD not connected' }))
-      }
-    })
+  const mpd = getMpdClient()
+  ws.send(JSON.stringify(mpdStatusMessage(mpd.connected)))
+
+  // Send full state on connect. When MPD is down the client already knows
+  // from the message above and will get a state broadcast once MPD is back.
+  if (mpd.connected) {
+    getFullState()
+      .then((state) => {
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify(state))
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to send initial state:', err)
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Failed to load MPD state' }))
+        }
+      })
+  }
 
   ws.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {
     try {
@@ -187,6 +203,18 @@ export function setupWebSocketHandler(ws: WebSocket): void {
 export function setupMpdEventBroadcasting(): void {
   const mpd = getMpdClient()
   const debounced = createDebouncedBroadcaster(150)
+
+  // MPD availability. After (re)connecting, push a full state so clients that
+  // sat through the outage are resynced instead of waiting for the next event.
+  mpd.on('connect', () => {
+    broadcast(mpdStatusMessage(true))
+    getFullState()
+      .then((state) => broadcast(state))
+      .catch((err) => console.error('Failed to broadcast state after MPD connect:', err))
+  })
+  mpd.on('disconnect', () => {
+    broadcast(mpdStatusMessage(false))
+  })
 
   mpd.on('player', () => {
     debounced('player', async () => {

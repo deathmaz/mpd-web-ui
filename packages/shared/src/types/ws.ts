@@ -58,6 +58,13 @@ export interface ServerPing {
   type: 'ping'
 }
 
+// Whether the server currently has a live connection to MPD. Sent on WS
+// connect, and broadcast whenever the MPD connection drops or comes back.
+export interface MpdConnectionUpdate {
+  type: 'mpd'
+  connected: boolean
+}
+
 export type ServerMessage =
   | StateUpdate
   | PlayerUpdate
@@ -68,6 +75,7 @@ export type ServerMessage =
   | ServerError
   | CommandResponse
   | ServerPing
+  | MpdConnectionUpdate
 
 // Client -> Server messages
 export interface ClientCommand {

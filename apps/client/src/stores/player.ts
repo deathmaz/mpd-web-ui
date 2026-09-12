@@ -16,6 +16,8 @@ export const usePlayerStore = defineStore('player', () => {
   const audioFormat = ref('')
   const currentSong = ref<MpdSong | null>(null)
   const outputs = ref<MpdOutput[]>([])
+  /** Server-reported MPD availability (the WS may be up while MPD is down) */
+  const mpdConnected = ref(false)
 
   function updateStatus(status: MpdStatus) {
     playState.value = status.state
@@ -58,6 +60,7 @@ export const usePlayerStore = defineStore('player', () => {
     audioFormat,
     currentSong,
     outputs,
+    mpdConnected,
     updateStatus,
     updateCurrentSong,
     seekTo,

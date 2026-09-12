@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useWebSocket, sendCommand } from '@/composables/useWebSocket'
 import { useAudioSource } from '@/composables/useAudioSource'
@@ -13,6 +13,13 @@ const snapcast = useSnapcastStore()
 
 const { currentSchemeId, schemes, applyScheme } = useColorScheme()
 const snapcastUrl = ref(snapcast.serverUrl)
+
+// WS up + MPD up = green; WS up but server lost MPD = yellow; WS down = red
+const connectionStatus = computed(() => {
+  if (!connected.value) return { label: 'Disconnected', dot: 'bg-red-400' }
+  if (!player.mpdConnected) return { label: 'Server up, MPD unreachable', dot: 'bg-yellow-400' }
+  return { label: 'Connected to MPD', dot: 'bg-green-400' }
+})
 
 async function toggleOutput(id: number) {
   await sendCommand('toggleOutput', { id })
@@ -64,9 +71,9 @@ async function setSnapcastVolume(e: Event) {
         <div class="flex items-center gap-2">
           <div
             class="w-2 h-2 rounded-full"
-            :class="connected ? 'bg-green-400' : 'bg-red-400'"
+            :class="connectionStatus.dot"
           />
-          <span class="text-sm">{{ connected ? 'Connected to MPD' : 'Disconnected' }}</span>
+          <span class="text-sm">{{ connectionStatus.label }}</span>
         </div>
       </section>
 
