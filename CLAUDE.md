@@ -52,6 +52,7 @@ pnpm typecheck        # typecheck all packages
 - Server maintains two persistent TCP connections to MPD: command (serialized queue) and idle (event loop)
 - The idle connection runs a permanent `idle` loop — this command blocks indefinitely by design, no timeout
 - All other MPD commands have a 10s timeout to prevent queue deadlock
+- Fastify async route handlers that call `reply.send(stream)` must resolve/return the reply (`return reply.send(...)`); since fastify 5.12 resolving `undefined` after send responds with an empty body (regression test: `apps/server/src/routes/__tests__/stream.test.ts`)
 - WebSocket broadcasts MPD subsystem events to all connected browser clients in real-time
 - `/api/stream` proxies MPD's httpd output for browser audio playback
 - Client elapsed time is interpolated locally (250ms interval) between server status updates
