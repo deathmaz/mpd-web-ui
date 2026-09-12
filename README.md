@@ -118,6 +118,7 @@ Environment variables:
 | `MPD_PASSWORD` | — | MPD password (if set) |
 | `MPD_STREAM_PORT` | `8000` | MPD httpd stream port |
 | `CLIENT_DIST_PATH` | `../client/dist` | Path to built client files |
+| `ALLOWED_ORIGINS` | — | Extra WebSocket origins (comma-separated, e.g. `https://music.example.com`). By default only pages served from the same host as the request may open the WebSocket |
 
 ## Project structure
 

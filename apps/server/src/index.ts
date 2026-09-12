@@ -11,7 +11,8 @@ import { log, setLogger, errorMessage } from './logger.js'
 import { errorHandler } from './error-handler.js'
 import { startMpd } from './services/mpd.js'
 import { setupLibraryCacheInvalidation } from './services/library-cache.js'
-import { setupWebSocketHandler, setupMpdEventBroadcasting } from './ws/handler.js'
+import { setupMpdEventBroadcasting } from './ws/handler.js'
+import { websocketRoute } from './ws/route.js'
 import { streamRoutes } from './routes/stream.js'
 import { artRoutes } from './routes/art.js'
 import { libraryRoutes } from './routes/library.js'
@@ -35,12 +36,8 @@ async function main() {
     options: { maxPayload: 1024 * 1024 },
   })
 
-  // WebSocket endpoint
-  fastify.register(async (app) => {
-    app.get('/ws', { websocket: true }, (socket) => {
-      setupWebSocketHandler(socket)
-    })
-  })
+  // WebSocket endpoint (Origin-checked, see ws/origin.ts)
+  await fastify.register(websocketRoute)
 
   // REST routes
   await fastify.register(streamRoutes)
