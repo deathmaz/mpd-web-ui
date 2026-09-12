@@ -15,7 +15,6 @@ export async function streamRoutes(fastify: FastifyInstance): Promise<void> {
           res.headers['content-type'] || 'application/octet-stream',
         )
         reply.header('Cache-Control', 'no-cache, no-store')
-        reply.header('Connection', 'keep-alive')
 
         // Forward ICY headers if present
         for (const [key, value] of Object.entries(res.headers)) {

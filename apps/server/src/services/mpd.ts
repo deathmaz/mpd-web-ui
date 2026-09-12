@@ -1,5 +1,6 @@
 import { MpdClient } from '@mpd-web/mpd-client'
 import { config } from '../config.js'
+import { log, errorMessage } from '../logger.js'
 
 let client: MpdClient | null = null
 
@@ -13,15 +14,15 @@ export function getMpdClient(): MpdClient {
 
     // Permanent error handler — prevents unhandled 'error' events from crashing
     client.on('error', (err) => {
-      console.error('MPD error:', err instanceof Error ? err.message : err)
+      log.error('MPD error: %s', errorMessage(err))
     })
 
     client.on('connect', () => {
-      console.log(`Connected to MPD at ${config.mpdHost}:${config.mpdPort}`)
+      log.info('Connected to MPD at %s:%d', config.mpdHost, config.mpdPort)
     })
 
     client.on('disconnect', () => {
-      console.warn('MPD disconnected, will attempt to reconnect...')
+      log.warn('MPD disconnected, will attempt to reconnect...')
     })
   }
   return client

@@ -11,6 +11,7 @@ import type {
 import { getMpdClient } from '../services/mpd.js'
 import { addClient, broadcast } from './broadcaster.js'
 import { createDebouncedBroadcaster } from './debounce.js'
+import { log, errorMessage } from '../logger.js'
 
 async function getFullState(): Promise<StateUpdate> {
   const mpd = getMpdClient()
@@ -180,7 +181,7 @@ export function setupWebSocketHandler(ws: WebSocket): void {
         }
       })
       .catch((err) => {
-        console.error('Failed to send initial state:', err)
+        log.error('Failed to send initial state: %s', errorMessage(err))
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: 'error', message: 'Failed to load MPD state' }))
         }
@@ -196,7 +197,7 @@ export function setupWebSocketHandler(ws: WebSocket): void {
     }
     if (!isClientCommand(msg)) return
     handleCommand(ws, msg).catch((err) => {
-      console.error('Unhandled error in command handler:', err)
+      log.error('Unhandled error in command handler: %s', errorMessage(err))
     })
   })
 
@@ -238,7 +239,7 @@ export function setupMpdEventBroadcasting(): void {
     broadcast(mpdStatusMessage(true))
     getFullState()
       .then((state) => broadcast(state))
-      .catch((err) => console.error('Failed to broadcast state after MPD connect:', err))
+      .catch((err) => log.error('Failed to broadcast state after MPD connect: %s', errorMessage(err)))
   })
   mpd.on('disconnect', () => {
     broadcast(mpdStatusMessage(false))

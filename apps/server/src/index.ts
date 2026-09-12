@@ -7,6 +7,8 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { existsSync } from 'fs'
 import { config } from './config.js'
+import { log, setLogger, errorMessage } from './logger.js'
+import { errorHandler } from './error-handler.js'
 import { startMpd } from './services/mpd.js'
 import { setupLibraryCacheInvalidation } from './services/library-cache.js'
 import { setupWebSocketHandler, setupMpdEventBroadcasting } from './ws/handler.js'
@@ -21,11 +23,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 async function main() {
   const fastify = Fastify({ logger: true })
+  setLogger(fastify.log)
+  fastify.setErrorHandler(errorHandler)
 
   // Plugins
   await fastify.register(fastifyCompress)
   await fastify.register(fastifyCors, { origin: true })
-  await fastify.register(fastifyWebsocket)
+  // ws defaults to a 100 MiB max frame; the biggest legitimate client
+  // message is an addMultiple with a few thousand URIs, well under 1 MiB.
+  await fastify.register(fastifyWebsocket, {
+    options: { maxPayload: 1024 * 1024 },
+  })
 
   // WebSocket endpoint
   fastify.register(async (app) => {
@@ -77,7 +85,6 @@ async function main() {
   })
 
   await fastify.listen({ host: config.host, port: config.port })
-  console.log(`Server listening on http://${config.host}:${config.port}`)
 
   // Graceful shutdown: close HTTP + WS clients, then the MPD sockets
   const shutdown = (signal: string) => {
@@ -92,6 +99,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Fatal error:', err)
+  log.error('Fatal error: %s', errorMessage(err))
   process.exit(1)
 })

@@ -91,8 +91,9 @@ describe('createDebouncedBroadcaster', () => {
 
     expect(fn).toHaveBeenCalledOnce()
     expect(consoleError).toHaveBeenCalledWith(
-      'Error in debounced player broadcast:',
-      expect.any(Error),
+      'Error in debounced %s broadcast: %s',
+      'player',
+      'fetch failed',
     )
 
     consoleError.mockRestore()

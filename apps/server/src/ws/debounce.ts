@@ -1,3 +1,5 @@
+import { log, errorMessage } from '../logger.js'
+
 type AsyncFn = () => Promise<void>
 
 /**
@@ -11,7 +13,7 @@ export function createDebouncedBroadcaster(delayMs = 150) {
 
   function execute(key: string, fn: AsyncFn): void {
     fn().catch((err) =>
-      console.error(`Error in debounced ${key} broadcast:`, err),
+      log.error('Error in debounced %s broadcast: %s', key, errorMessage(err)),
     )
   }
 

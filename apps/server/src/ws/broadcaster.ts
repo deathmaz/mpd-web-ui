@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws'
 import type { ServerMessage } from '@mpd-web/shared'
+import { log } from '../logger.js'
 
 const clients = new Set<WebSocket>()
 
@@ -25,7 +26,7 @@ export function broadcast(message: ServerMessage): void {
         dropCounts.set(ws, drops)
 
         if (drops >= MAX_CONSECUTIVE_DROPS) {
-          console.warn('Disconnecting slow WebSocket client (too many dropped messages)')
+          log.warn('Disconnecting slow WebSocket client (too many dropped messages)')
           clients.delete(ws)
           ws.close(1008, 'Too slow')
         }

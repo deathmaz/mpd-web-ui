@@ -246,7 +246,7 @@ describe('MpdConnection', () => {
 
     it('rejects all queued commands on timeout disconnect', async () => {
       vi.useFakeTimers()
-      const { conn, socket } = createTestConnection()
+      const { conn } = createTestConnection()
 
       const p1 = conn.sendCommand('status')
       const p2 = conn.sendCommand('currentsong')

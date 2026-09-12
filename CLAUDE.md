@@ -60,6 +60,7 @@ pnpm typecheck        # typecheck all packages
 - `/api/stream` proxies MPD's httpd output for browser audio playback
 - Album art: `MpdClient.connect()` sends `binarylimit 1048576` so a cover is one round trip instead of 8 KiB chunks; `apps/server/src/services/art.ts` wraps MPD with a 50 MB positive LRU, a 1 h negative LRU (files with no art) and in-flight coalescing. `/api/art/*` sends `Cache-Control` on 404s too
 - Library listings (`/api/library/artists|albums|genres`) are served from `apps/server/src/services/library-cache.ts`, which caches promises until MPD emits the `database` idle event (or disconnects); that event also clears the art caches. `browse`/`songs`/`search` hit MPD directly (cheap, path-specific)
+- Server logging goes through `apps/server/src/logger.ts` (`log.info/warn/error`, printf `%s`), which is wired to Fastify's pino logger at startup — no `console.*` in `apps/server/src`. REST errors are mapped in `apps/server/src/error-handler.ts`: `MpdError` → 400 `{ error, code, command }`, MPD unreachable → 503, anything else 500 without details
 - Client elapsed time is interpolated locally (250ms interval) between server status updates
 - Server serves the built client SPA with fallback to `index.html` for client-side routing
 - In dev mode (`NODE_ENV=development`), static file serving is skipped — use Vite's dev server for HMR
