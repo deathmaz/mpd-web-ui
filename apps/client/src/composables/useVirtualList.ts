@@ -32,10 +32,9 @@ export function findStartIndex(prefixSums: number[], scrollTop: number): number 
 
 /** Build prefix sum array: prefixSums[i] = total height of items 0..i-1. */
 export function buildPrefixSums<T>(items: T[], itemHeight: (item: T) => number): number[] {
-  const sums = new Array<number>(items.length + 1)
-  sums[0] = 0
+  const sums: number[] = [0]
   for (let i = 0; i < items.length; i++) {
-    sums[i + 1] = sums[i] + itemHeight(items[i])
+    sums.push(sums[i] + itemHeight(items[i]))
   }
   return sums
 }

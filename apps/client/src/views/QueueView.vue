@@ -31,7 +31,11 @@ function albumGroupKey(album: string, artist?: string): string {
 
 function toggleAlbum(key: string) {
   const s = new Set(collapsedAlbums.value)
-  s.has(key) ? s.delete(key) : s.add(key)
+  if (s.has(key)) {
+    s.delete(key)
+  } else {
+    s.add(key)
+  }
   collapsedAlbums.value = s
 }
 
