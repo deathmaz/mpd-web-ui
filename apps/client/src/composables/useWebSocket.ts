@@ -53,17 +53,8 @@ function handleMessage(event: MessageEvent): void {
       playerStore.updateStatus(msg.status)
       playerStore.updateCurrentSong(msg.currentSong)
       break
-    case 'mixer':
-      playerStore.volume = msg.volume
-      break
     case 'queue':
       queueStore.updateQueue(msg.queue)
-      break
-    case 'options':
-      playerStore.repeat = msg.repeat
-      playerStore.random = msg.random
-      playerStore.single = msg.single
-      playerStore.consume = msg.consume
       break
     case 'outputs':
       playerStore.updateOutputs(msg.outputs)

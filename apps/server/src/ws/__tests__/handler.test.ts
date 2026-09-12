@@ -190,6 +190,32 @@ describe('setupWebSocketHandler commands', () => {
   })
 })
 
+describe('setupMpdEventBroadcasting player state', () => {
+  it('coalesces player, mixer and options events into one player broadcast', async () => {
+    setupMpdEventBroadcasting()
+    const ws = createMockWs()
+    setupWebSocketHandler(ws as any)
+    await vi.waitFor(() => expect(ws.send).toHaveBeenCalledTimes(2))
+    ws.send.mockClear()
+    mpd.status.mockClear()
+
+    mpd.emit('player')
+    mpd.emit('mixer')
+    mpd.emit('options')
+    // leading edge fires at once, the coalesced trailing edge after the window
+    await new Promise((r) => setTimeout(r, 250))
+
+    const messages = sentMessages(ws)
+    expect(messages.length).toBeLessThanOrEqual(2)
+    expect(messages.every((m) => m.type === 'player')).toBe(true)
+    expect(messages[0]).toMatchObject({ type: 'player', status: { state: 'pause' }, currentSong: null })
+    expect(mpd.status).toHaveBeenCalledTimes(messages.length)
+
+    ws.emit('close')
+    mpd.removeAllListeners()
+  })
+})
+
 describe('setupMpdEventBroadcasting availability', () => {
   it('broadcasts mpd: true and a fresh state when MPD (re)connects, mpd: false when it drops', async () => {
     setupMpdEventBroadcasting()

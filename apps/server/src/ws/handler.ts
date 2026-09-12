@@ -244,7 +244,10 @@ export function setupMpdEventBroadcasting(): void {
     broadcast(mpdStatusMessage(false))
   })
 
-  mpd.on('player', () => {
+  // player, mixer and options all live in `status`, so they share one
+  // debounced broadcast: an idle response listing several of them costs one
+  // status + currentsong round trip and one message instead of three.
+  const broadcastPlayerState = () => {
     debounced('player', async () => {
       const [status, currentSong] = await Promise.all([
         mpd.status(),
@@ -252,32 +255,15 @@ export function setupMpdEventBroadcasting(): void {
       ])
       broadcast({ type: 'player', status, currentSong })
     })
-  })
-
-  mpd.on('mixer', () => {
-    debounced('mixer', async () => {
-      const status = await mpd.status()
-      broadcast({ type: 'mixer', volume: status.volume })
-    })
-  })
+  }
+  mpd.on('player', broadcastPlayerState)
+  mpd.on('mixer', broadcastPlayerState)
+  mpd.on('options', broadcastPlayerState)
 
   mpd.on('playlist', () => {
     debounced('playlist', async () => {
       const queue = await mpd.playlistInfo()
       broadcast({ type: 'queue', queue })
-    })
-  })
-
-  mpd.on('options', () => {
-    debounced('options', async () => {
-      const status = await mpd.status()
-      broadcast({
-        type: 'options',
-        repeat: status.repeat,
-        random: status.random,
-        single: status.single,
-        consume: status.consume,
-      })
     })
   })
 

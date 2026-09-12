@@ -9,28 +9,17 @@ export interface StateUpdate {
   outputs: MpdOutput[]
 }
 
+// Sent for MPD's player, mixer and options subsystems alike: volume and the
+// repeat/random/single/consume flags are part of `status`.
 export interface PlayerUpdate {
   type: 'player'
   status: MpdStatus
   currentSong: MpdSong | null
 }
 
-export interface MixerUpdate {
-  type: 'mixer'
-  volume: number
-}
-
 export interface QueueUpdate {
   type: 'queue'
   queue: MpdSong[]
-}
-
-export interface OptionsUpdate {
-  type: 'options'
-  repeat: boolean
-  random: boolean
-  single: boolean | 'oneshot'
-  consume: boolean | 'oneshot'
 }
 
 export interface OutputsUpdate {
@@ -68,9 +57,7 @@ export interface MpdConnectionUpdate {
 export type ServerMessage =
   | StateUpdate
   | PlayerUpdate
-  | MixerUpdate
   | QueueUpdate
-  | OptionsUpdate
   | OutputsUpdate
   | ServerError
   | CommandResponse
